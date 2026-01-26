@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://cm3q5bqpx230h"]
+
+[ext_resource type="Script" path="res://ui/ui_test_scene.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://cm3q5bqpx229h" path="res://ui/ui_manager.tscn" id="2_ui_mgr"]
+
+[node name="UITestScene" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="UIManager" parent="." instance=ExtResource("2_ui_mgr")]

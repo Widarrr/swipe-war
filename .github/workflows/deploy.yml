@@ -1,0 +1,108 @@
+name: "CI/CD Build & Deploy"
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-web-and-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Setup Godot"
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.2
+
+      - name: "Create build directories"
+        run: |
+          mkdir -p build/web
+          mkdir -p build/android
+
+      - name: "Export Web (HTML5)"
+        run: |
+          godot --headless --export-release "Web" build/web/index.html
+
+      - name: "Export Android Debug APK"
+        run: |
+          godot --headless --export-debug "Android" build/android/swipe-war.apk
+
+      - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"
+        run: |
+          curl -sSL https://raw.githubusercontent.com/gzguidoti/coi-serviceworker/main/coi-serviceworker.min.js -o build/web/coi-serviceworker.js
+          sed -i 's|<head>|<head><script src="coi-serviceworker.js"></script>|g' build/web/index.html
+
+      - name: "Upload Web Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: swipe-war-web
+          path: build/web/
+
+      - name: "Upload Android APK Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: swipe-war-android
+          path: build/android/swipe-war.apk
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Setup Godot"
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.2
+
+      - name: "Create iOS build directory"
+        run: |
+          mkdir -p build/ios
+
+      - name: "Export iOS Xcode Project"
+        run: |
+          godot --headless --export-debug "iOS" build/ios/SwipeWar
+
+      - name: "Zip Xcode Project"
+        run: |
+          cd build
+          zip -r ios-xcode-project.zip ios/
+
+      - name: "Upload iOS Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: swipe-war-ios
+          path: build/ios-xcode-project.zip
+
+  deploy-web:
+    runs-on: ubuntu-latest
+    needs: build-web-and-android
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Download Web Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: swipe-war-web
+          path: build/web
+
+      - name: "Deploy to GitHub Pages"
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
+          force_orphan: true

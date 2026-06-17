@@ -25,6 +25,7 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.6.2
+          use-dotnet: false
 
       - name: "Create build directories"
         run: |
@@ -66,6 +67,7 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.6.2
+          use-dotnet: false
 
       - name: "Create iOS build directory"
         run: |

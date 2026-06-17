@@ -42,10 +42,10 @@ jobs:
           
           # Create Godot editor settings directory and configure Android SDK path
           mkdir -p ~/.config/godot
-          echo '[godot_resource type="EditorSettings" format=3]' > ~/.config/godot/editor_settings-4.tres
+          echo '[gd_resource type="EditorSettings" format=3]' > ~/.config/godot/editor_settings-4.tres
           echo '[resource]' >> ~/.config/godot/editor_settings-4.tres
           echo 'export/android/android_sdk_path = "'"$ANDROID_HOME"'"' >> ~/.config/godot/editor_settings-4.tres
-          echo 'export/android/debug_keystore = "~/.android/debug.keystore"' >> ~/.config/godot/editor_settings-4.tres
+          echo 'export/android/debug_keystore = "'"$HOME/.android/debug.keystore"'"' >> ~/.config/godot/editor_settings-4.tres
           echo 'export/android/debug_keystore_user = "androiddebugkey"' >> ~/.config/godot/editor_settings-4.tres
           echo 'export/android/debug_keystore_pass = "android"' >> ~/.config/godot/editor_settings-4.tres
 
@@ -60,7 +60,7 @@ jobs:
 
       - name: "Export Android Debug APK"
         run: |
-          godot --headless --export-debug "Android" build/android/swipe-war.apk
+          godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk
 
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"
         run: |

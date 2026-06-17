@@ -61,6 +61,14 @@ jobs:
         run: |
           godot --headless --export-release "Web" build/web/index.html
 
+      - name: "Debug Android export config"
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
+          ls -la "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/build-tools" 2>&1 || true
+          ls -la "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" 2>&1 || true
+
       - name: "Export Android Debug APK"
         run: |
           godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk

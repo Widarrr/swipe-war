@@ -34,23 +34,23 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: "Setup Android Keystore and Editor Settings"
+      - name: "Setup Android SDK"
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools build-tools;34.0.0 platforms;android-34"
+
+      - name: "Generate debug keystore"
         run: |
           # Create .android directory and generate debug keystore
           mkdir -p ~/.android
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore ~/.android/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 360
-          
-          # Create Godot editor settings directory and configure Android SDK path
-          mkdir -p ~/.config/godot
-          echo '[gd_resource type="EditorSettings" format=3]' > ~/.config/godot/editor_settings-4.6.tres
-          echo '[resource]' >> ~/.config/godot/editor_settings-4.6.tres
-          echo 'export/android/android_sdk_path = "'"$ANDROID_HOME"'"' >> ~/.config/godot/editor_settings-4.6.tres
-          echo 'export/android/debug_keystore = "'"$HOME/.android/debug.keystore"'"' >> ~/.config/godot/editor_settings-4.6.tres
-          echo 'export/android/debug_keystore_user = "androiddebugkey"' >> ~/.config/godot/editor_settings-4.6.tres
-          echo 'export/android/debug_keystore_pass = "android"' >> ~/.config/godot/editor_settings-4.6.tres
-          
-          # Also copy to editor_settings-4.tres for backwards compatibility
-          cp ~/.config/godot/editor_settings-4.6.tres ~/.config/godot/editor_settings-4.tres
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+            -keystore ~/.android/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 360
+
+          # Export keystore configuration to Github environment variables
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
 
       - name: "Create build directories"
         run: |

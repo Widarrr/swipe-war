@@ -28,6 +28,27 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: "Set up JDK 17"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: "Setup Android Keystore and Editor Settings"
+        run: |
+          # Create .android directory and generate debug keystore
+          mkdir -p ~/.android
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore ~/.android/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 360
+          
+          # Create Godot editor settings directory and configure Android SDK path
+          mkdir -p ~/.config/godot
+          echo '[gd_resource type="EditorSettings" format=3]' > ~/.config/godot/editor_settings-4.tres
+          echo '[resource]' >> ~/.config/godot/editor_settings-4.tres
+          echo 'export/android/android_sdk_path = "'"$ANDROID_HOME"'"' >> ~/.config/godot/editor_settings-4.tres
+          echo 'export/android/debug_keystore = "'"$HOME/.android/debug.keystore"'"' >> ~/.config/godot/editor_settings-4.tres
+          echo 'export/android/debug_keystore_user = "androiddebugkey"' >> ~/.config/godot/editor_settings-4.tres
+          echo 'export/android/debug_keystore_pass = "android"' >> ~/.config/godot/editor_settings-4.tres
+
       - name: "Create build directories"
         run: |
           mkdir -p build/web
@@ -38,9 +59,8 @@ jobs:
           godot --headless --export-release "Web" build/web/index.html
 
       - name: "Export Android Debug APK"
-        uses: dulvui/godot-android-export@v4
-        with:
-          godot-version: 4.6.2
+        run: |
+          godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk
 
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"
         run: |

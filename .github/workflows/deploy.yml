@@ -61,13 +61,24 @@ jobs:
         run: |
           godot --headless --export-release "Web" build/web/index.html
 
-      - name: "Debug Android export config"
+      - name: "Debug Android export preconditions"
         run: |
+          echo "--- Android SDK ---"
           echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -la "$ANDROID_HOME/platform-tools/adb" 2>&1 || echo "MISSING: adb"
+          ls -la "$ANDROID_HOME/build-tools/" 2>&1 || echo "MISSING: build-tools dir"
+
+          echo "--- Java SDK ---"
           echo "JAVA_HOME=$JAVA_HOME"
+          ls -la "$JAVA_HOME/bin/java" 2>&1 || echo "MISSING: java"
+
+          echo "--- Keystore ---"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
-          ls -la "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/build-tools" 2>&1 || true
-          ls -la "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" 2>&1 || true
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=$GODOT_ANDROID_KEYSTORE_DEBUG_USER"
+          ls -la "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" 2>&1 || echo "MISSING: debug keystore file"
+
+          echo "--- Export templates ---"
+          find ~/.local/share/godot/export_templates -maxdepth 2 2>&1 || echo "MISSING: export_templates dir entirely"
 
       - name: "Export Android Debug APK"
         run: |

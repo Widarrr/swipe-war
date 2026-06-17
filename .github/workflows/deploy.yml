@@ -79,6 +79,10 @@ jobs:
 
           echo "--- Export templates ---"
           find ~/.local/share/godot/export_templates -maxdepth 2 2>&1 || echo "MISSING: export_templates dir entirely"
+          echo "Godot version:"
+          godot --version
+          echo "--- Recherche du dossier exact attendu ---"
+          ls -la ~/.local/share/godot/export_templates/4.6.2.stable/ 2>&1 || echo "MANQUANT: 4.6.2.stable"
 
       - name: "Export Android Debug APK"
         run: |

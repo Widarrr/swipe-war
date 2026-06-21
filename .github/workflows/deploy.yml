@@ -25,6 +25,38 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.6.2
+          use-dotnet: false
+          include-templates: true
+
+      - name: "Set up JDK 17"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: "Setup Android SDK"
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools build-tools;34.0.0 platforms;android-34"
+
+      - name: "Generate debug keystore and configure Godot editor settings"
+        run: |
+          mkdir -p ~/.android
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+            -keystore ~/.android/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 360
+
+          mkdir -p ~/.config/godot
+          cat > ~/.config/godot/editor_settings-4.tres << EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/debug_keystore = "$HOME/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          cp ~/.config/godot/editor_settings-4.tres ~/.config/godot/editor_settings-4.6.tres
 
       - name: "Create build directories"
         run: |
@@ -37,7 +69,7 @@ jobs:
 
       - name: "Export Android Debug APK"
         run: |
-          godot --headless --export-debug "Android" build/android/swipe-war.apk
+          godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk
 
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"
         run: |
@@ -66,6 +98,19 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.6.2
+          use-dotnet: false
+          include-templates: true
+
+      - name: "Configure Godot editor settings"
+        run: |
+          mkdir -p ~/Library/Application\ Support/Godot
+          cat > ~/Library/Application\ Support/Godot/editor_settings-4.tres << 'EOF'
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          EOF
+          cp ~/Library/Application\ Support/Godot/editor_settings-4.tres \
+             ~/Library/Application\ Support/Godot/editor_settings-4.6.tres
 
       - name: "Create iOS build directory"
         run: |

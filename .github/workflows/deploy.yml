@@ -58,9 +58,12 @@ jobs:
           echo "build-tools: $(ls "$SDK_PATH/build-tools/" 2>/dev/null || echo MISSING)"
           echo "export-templates: $(ls ~/.local/share/godot/export_templates/ 2>/dev/null || echo MISSING)"
 
+          echo "Templates contents:"
+          ls ~/.local/share/godot/export_templates/4.6.2.stable/ | grep -i android || echo "No android templates!"
+
           mkdir -p ~/.config/godot
-          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\n' \
-            "$SDK_PATH" "$KEYSTORE_PATH" \
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\nexport/android/java_sdk_path = "%s"\n' \
+            "$SDK_PATH" "$KEYSTORE_PATH" "$JAVA_HOME" \
             | tee ~/.config/godot/editor_settings-4.tres \
                   ~/.config/godot/editor_settings-4.6.tres
 

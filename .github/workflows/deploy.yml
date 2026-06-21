@@ -46,20 +46,12 @@ jobs:
             -keystore ~/.android/debug.keystore -storepass android \
             -dname "CN=Android Debug,O=Android,C=US" -validity 360
 
-          KEYSTORE_PATH="$HOME/.android/debug.keystore"
           SDK_PATH="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          KEYSTORE_PATH="$HOME/.android/debug.keystore"
 
-          echo "=== Build diagnostics ==="
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "SDK_PATH=$SDK_PATH"
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "Keystore exists: $(test -f "$KEYSTORE_PATH" && echo YES || echo NO)"
-          echo "SDK dir exists:  $(test -d "$SDK_PATH" && echo YES || echo NO)"
-          echo "build-tools: $(ls "$SDK_PATH/build-tools/" 2>/dev/null || echo MISSING)"
-          echo "export-templates: $(ls ~/.local/share/godot/export_templates/ 2>/dev/null || echo MISSING)"
-
-          echo "Templates contents:"
-          ls ~/.local/share/godot/export_templates/4.6.2.stable/ | grep -i android || echo "No android templates!"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
 
           mkdir -p ~/.config/godot
           printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\nexport/android/java_sdk_path = "%s"\n' \
@@ -76,15 +68,9 @@ jobs:
         run: |
           godot --headless --export-release "Web" build/web/index.html
 
-      - name: "Export Android Debug APK"
+      - name: "Install Android build template and export APK"
         run: |
-          echo "=== Android templates ==="
-          ls -la ~/.local/share/godot/export_templates/4.6.2.stable/ | grep -i android || echo "MISSING android templates!"
-
-          echo "=== Disable signing for CI ==="
-          sed -i 's/package\/signed=true/package\/signed=false/' export_presets.cfg
-          grep "package/signed" export_presets.cfg
-
+          godot --headless --verbose --install-android-build-template
           godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk
 
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"

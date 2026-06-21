@@ -70,7 +70,12 @@ jobs:
 
       - name: "Install Android build template and export APK"
         run: |
-          godot --headless --verbose --install-android-build-template
+          TEMPLATES_DIR="$HOME/.local/share/godot/export_templates/4.6.2.stable"
+          mkdir -p android/build
+          unzip -o "$TEMPLATES_DIR/android_source.zip" -d android/build
+          echo ".build_version" > android/.gdignore
+          touch android/build/.gdignore
+
           godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk
 
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"

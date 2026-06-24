@@ -2,13 +2,19 @@
 extends UIScreen
 
 signal back_pressed
-signal start_match_pressed(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int)
+signal start_match_pressed(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int)
 
 # Valeurs de configuration par défaut et limites pour la boutique
-const BUDGET_MAX = 150
+const BUDGET_MAX = 150 # budget par défaut
+const BUDGET_LIMIT_MIN = 90
+const BUDGET_LIMIT_MAX = 300
+const BUDGET_LIMIT_STEP = 10
 const COST_TANK = 50
 const COST_PLANE = 40
 const COST_CAR = 30
+
+# Budget (points de composition d'équipe) réglable sur la page Règles
+var team_budget: int = BUDGET_MAX
 
 var num_tanks: int = 1
 var num_planes: int = 1
@@ -47,6 +53,10 @@ var plane_val_label: Label
 var car_val_label: Label
 var budget_label: Label
 var shop_title_label: Label
+# Carte "Points d'équipe" (budget) créée dynamiquement sur la page Règles
+var budget_card: PanelContainer
+var budget_value_label: Label
+var budget_progress: ProgressBar
 
 # Références des cartes et étapes
 var mode_card_ia: Button
@@ -78,6 +88,10 @@ func _ready() -> void:
 	# Configurer la sélection de la carte
 	_setup_map_card()
 	
+	# Ajouter la carte "Points d'équipe" (budget) AVANT les jauges,
+	# pour que le clone de la carte AP ne récupère pas la barre de progression.
+	_setup_budget_card()
+
 	# Configurer les jauges de progression pour les stats (AP et HP)
 	_setup_stat_gauges()
 	
@@ -535,6 +549,72 @@ func _update_map_selection() -> void:
 	apply_style.call(map_card_pillars, selected_map_name == "pillars", Color("#8BE31B"))
 	apply_style.call(map_card_corridor, selected_map_name == "corridor", Color("#FF4B57"))
 
+# Crée la carte "Points d'équipe" en clonant la carte AP (même style premium).
+func _setup_budget_card() -> void:
+	var ap_card = $VBoxContainer/CardsContainer/APCard
+	if not ap_card: return
+
+	budget_card = ap_card.duplicate() as PanelContainer
+	budget_card.name = "BudgetCard"
+	ap_card.get_parent().add_child(budget_card)
+	# Placer la carte budget juste avant la carte AP.
+	ap_card.get_parent().move_child(budget_card, ap_card.get_index())
+
+	var icon = budget_card.get_node_or_null("Margin/HBox/IconFrame/IconLabel")
+	var title = budget_card.get_node_or_null("Margin/HBox/ControlArea/Title")
+	var range_label = budget_card.get_node_or_null("Margin/HBox/ControlArea/RangeLabel")
+	budget_value_label = budget_card.get_node_or_null("Margin/HBox/ControlArea/AdjusterHBox/ValueLabel")
+	var minus_btn = budget_card.get_node_or_null("Margin/HBox/ControlArea/AdjusterHBox/MinusButton")
+	var plus_btn = budget_card.get_node_or_null("Margin/HBox/ControlArea/AdjusterHBox/PlusButton")
+
+	if icon: icon.text = "💰"
+	if title: title.text = "Points d'équipe"
+	if range_label: range_label.text = "%d - %d pts (pas de %d)" % [BUDGET_LIMIT_MIN, BUDGET_LIMIT_MAX, BUDGET_LIMIT_STEP]
+	if budget_value_label: budget_value_label.text = str(team_budget)
+
+	# Barre de progression (cohérente avec AP/HP)
+	var ctrl_area = budget_card.get_node_or_null("Margin/HBox/ControlArea")
+	if ctrl_area:
+		var track_style = StyleBoxFlat.new()
+		track_style.bg_color = Color("#18181C")
+		track_style.corner_radius_top_left = 4
+		track_style.corner_radius_top_right = 4
+		track_style.corner_radius_bottom_left = 4
+		track_style.corner_radius_bottom_right = 4
+		budget_progress = ProgressBar.new()
+		budget_progress.show_percentage = false
+		budget_progress.custom_minimum_size = Vector2(0, 6)
+		budget_progress.min_value = BUDGET_LIMIT_MIN
+		budget_progress.max_value = BUDGET_LIMIT_MAX
+		budget_progress.value = team_budget
+		budget_progress.add_theme_stylebox_override("background", track_style)
+		var fill = StyleBoxFlat.new()
+		fill.bg_color = Color("#8BE31B") # Vert (budget)
+		fill.corner_radius_top_left = 4
+		fill.corner_radius_top_right = 4
+		fill.corner_radius_bottom_left = 4
+		fill.corner_radius_bottom_right = 4
+		budget_progress.add_theme_stylebox_override("fill", fill)
+		ctrl_area.add_child(budget_progress)
+
+	# Le clone ne copie pas les connexions faites par code : on (re)branche les boutons.
+	if minus_btn: minus_btn.pressed.connect(_on_budget_minus)
+	if plus_btn: plus_btn.pressed.connect(_on_budget_plus)
+
+	budget_card.hide()
+
+func _on_budget_minus() -> void:
+	team_budget = max(BUDGET_LIMIT_MIN, team_budget - BUDGET_LIMIT_STEP)
+	_update_budget_ui()
+
+func _on_budget_plus() -> void:
+	team_budget = min(BUDGET_LIMIT_MAX, team_budget + BUDGET_LIMIT_STEP)
+	_update_budget_ui()
+
+func _update_budget_ui() -> void:
+	if budget_value_label: budget_value_label.text = str(team_budget)
+	if budget_progress: budget_progress.value = team_budget
+
 func _setup_stat_gauges() -> void:
 	var ap_ctrl_area = $VBoxContainer/CardsContainer/APCard/Margin/HBox/ControlArea
 	var hp_ctrl_area = $VBoxContainer/CardsContainer/HPCard/Margin/HBox/ControlArea
@@ -734,7 +814,7 @@ func _update_shop_ui() -> void:
 	var n_planes = counts[1]
 	var n_cars = counts[2]
 	var total_cost = (n_tanks * COST_TANK) + (n_planes * COST_PLANE) + (n_cars * COST_CAR)
-	var remaining = BUDGET_MAX - total_cost
+	var remaining = team_budget - total_cost
 	var total_vehicles = n_tanks + n_planes + n_cars
 
 	if tank_val_label:
@@ -761,7 +841,7 @@ func _update_shop_ui() -> void:
 			start_match_btn.disabled = true
 			start_match_btn.modulate = Color(1, 1, 1, 0.4)
 		else:
-			budget_label.text = "Budget : %d / %d pts (Équipe : %d/5)" % [remaining, BUDGET_MAX, total_vehicles]
+			budget_label.text = "Budget : %d / %d pts (Équipe : %d/5)" % [remaining, team_budget, total_vehicles]
 			budget_label.add_theme_color_override("font_color", Color("#8BE31B"))
 			start_match_btn.disabled = false
 			start_match_btn.modulate = Color.WHITE
@@ -826,7 +906,8 @@ func _update_step_view() -> void:
 		if vehicles_card: vehicles_card.hide()
 		if ap_card: ap_card.hide()
 		if hp_card: hp_card.hide()
-		
+		if budget_card: budget_card.hide()
+
 		if title_label: title_label.text = "1. Choisir le Mode"
 		if start_match_btn:
 			start_match_btn.text = "Suivant >"
@@ -838,7 +919,8 @@ func _update_step_view() -> void:
 		if vehicles_card: vehicles_card.hide()
 		if ap_card: ap_card.hide()
 		if hp_card: hp_card.hide()
-		
+		if budget_card: budget_card.hide()
+
 		if title_label: title_label.text = "2. Sélectionner la Carte"
 		if start_match_btn:
 			start_match_btn.text = "Suivant >"
@@ -850,7 +932,8 @@ func _update_step_view() -> void:
 		if vehicles_card: vehicles_card.hide()
 		if ap_card: ap_card.show()
 		if hp_card: hp_card.show()
-		
+		if budget_card: budget_card.show()
+
 		if title_label: title_label.text = "3. Paramètres de Match"
 		if start_match_btn:
 			start_match_btn.text = "Suivant >"
@@ -862,7 +945,8 @@ func _update_step_view() -> void:
 		if vehicles_card: vehicles_card.show()
 		if ap_card: ap_card.hide()
 		if hp_card: hp_card.hide()
-		
+		if budget_card: budget_card.hide()
+
 		# En J1 vs J2 : étape équipe en deux temps (J1 puis J2).
 		if not vs_ia and editing_player == 1:
 			if title_label: title_label.text = "4. Équipe Joueur 1"
@@ -941,7 +1025,7 @@ func _on_start_match_pressed() -> void:
 	var p2_t := p2_num_tanks if not vs_ia else -1
 	var p2_c := p2_num_cars if not vs_ia else -1
 	var p2_p := p2_num_planes if not vs_ia else -1
-	start_match_pressed.emit(num_tanks, num_cars, num_planes, action_points, hit_points, vs_ia, selected_map_name, p2_t, p2_c, p2_p)
+	start_match_pressed.emit(num_tanks, num_cars, num_planes, action_points, hit_points, vs_ia, selected_map_name, p2_t, p2_c, p2_p, team_budget)
 
 # Rétrocompatibilité et feedback visuel de transition sur le texte quand la valeur change
 func _play_feedback_animation(target_label: Label) -> void:

@@ -212,7 +212,7 @@ func _check_game_over() -> void:
 			_on_match_cleaned()
 		)
 
-func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_ia: bool = true, map_name: String = "classic", p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1) -> void:
+func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_ia: bool = true, map_name: String = "classic", p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1, budget: int = 150) -> void:
 	max_ap = ap
 	current_ap = ap
 	enemy_ap = ap
@@ -229,7 +229,7 @@ func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_
 		obstacle_cells.assign(MAP_PRESETS["classic"])
 	
 	print("Gameplay: Match démarré avec Tanks=%d, Cars=%d, Planes=%d, %d PV, %d PA max. VS IA=%s, Carte=%s" % [tanks, cars, planes, hp, ap, str(vs_ia), map_name])
-	_spawn_simulated_match(tanks, cars, planes, hp, ap, p2_tanks, p2_cars, p2_planes)
+	_spawn_simulated_match(tanks, cars, planes, hp, ap, p2_tanks, p2_cars, p2_planes, budget)
 	
 	# Connecter les boutons du HUD (APRES spawn pour éviter que _on_match_cleaned ne les déconnecte !)
 	var hud_node = ui_manager.hud
@@ -303,7 +303,7 @@ func _generate_enemy_team(budget: int) -> Array[String]:
 		remaining -= chosen.cost
 	return team
 
-func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_max: int, p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1) -> void:
+func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_max: int, p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1, budget: int = 150) -> void:
 	_on_match_cleaned()
 	queue_redraw()
 	
@@ -358,7 +358,7 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		for i in range(max(p2_planes, 0)): enemy_types.append("plane")
 		for i in range(max(p2_cars, 0)): enemy_types.append("car")
 	if enemy_types.is_empty():
-		enemy_types = _generate_enemy_team(150)
+		enemy_types = _generate_enemy_team(budget)
 	for i in range(enemy_types.size()):
 		var type = enemy_types[i]
 		var enemy = SimulatedVehicle.new()

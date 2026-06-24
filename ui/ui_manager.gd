@@ -3,7 +3,7 @@ class_name UIManager
 extends CanvasLayer
 
 # Gère le démarrage et le re-jeu
-signal match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int)
+signal match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int)
 signal play_again_requested
 signal match_paused
 signal match_resumed
@@ -115,7 +115,7 @@ func change_screen(new_screen_type: ScreenType, use_transition: bool = true) -> 
 
 # --- Callbacks de navigation interne ---
 
-func _on_start_match_requested(tanks: int, cars: int, planes: int, ap: int, hp: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int) -> void:
+func _on_start_match_requested(tanks: int, cars: int, planes: int, ap: int, hp: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int) -> void:
 	# Enregistrer les paramètres pour le bouton "Play Again"
 	_last_match_settings["tanks"] = tanks
 	_last_match_settings["cars"] = cars
@@ -127,6 +127,7 @@ func _on_start_match_requested(tanks: int, cars: int, planes: int, ap: int, hp: 
 	_last_match_settings["p2_tanks"] = p2_tanks
 	_last_match_settings["p2_cars"] = p2_cars
 	_last_match_settings["p2_planes"] = p2_planes
+	_last_match_settings["budget"] = budget
 
 	# Lancer le match (changement vers HUD)
 	change_screen(ScreenType.HUD)
@@ -136,7 +137,7 @@ func _on_start_match_requested(tanks: int, cars: int, planes: int, ap: int, hp: 
 		hud.update_ap_display("P1", ap, ap, true)
 
 	# Émettre le signal global pour que le gameplay instancie la grille et les tanks
-	match_started.emit(tanks, cars, planes, hp, ap, vs_ia, map_name, p2_tanks, p2_cars, p2_planes)
+	match_started.emit(tanks, cars, planes, hp, ap, vs_ia, map_name, p2_tanks, p2_cars, p2_planes, budget)
 
 func _on_play_again_requested() -> void:
 	change_screen(ScreenType.HUD)
@@ -157,7 +158,8 @@ func _on_play_again_requested() -> void:
 		_last_match_settings.get("map_name", "classic"),
 		_last_match_settings.get("p2_tanks", -1),
 		_last_match_settings.get("p2_cars", -1),
-		_last_match_settings.get("p2_planes", -1)
+		_last_match_settings.get("p2_planes", -1),
+		_last_match_settings.get("budget", 150)
 	)
 
 func _on_pause_requested() -> void:

@@ -271,15 +271,7 @@ func _on_match_cleaned() -> void:
 	is_enemy_turn = false
 	is_dragging = false
 	active_projectiles.clear()
-	
-	# Nettoyer d'éventuels boutons de démonstration résiduels
-	var old_btn = ui_manager.hud.get_node_or_null("DemoWinButton")
-	if old_btn:
-		old_btn.queue_free()
-	var old_map_btn = ui_manager.hud.get_node_or_null("DemoMapButton")
-	if old_map_btn:
-		old_map_btn.queue_free()
-		
+
 	queue_redraw()
 
 func _generate_enemy_team(budget: int) -> Array[String]:
@@ -394,62 +386,7 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		fill_style.corner_radius_bottom_right = 1
 		gauge.health_bar.add_theme_stylebox_override("fill", fill_style)
 		
-	_create_demo_win_button()
-	_create_demo_map_button()
 	_update_red_team_health_bar()
-
-func _create_demo_win_button() -> void:
-	var win_btn = TouchButton.new()
-	win_btn.name = "DemoWinButton"
-	win_btn.text = "🏆 SIMULER VICTOIRE"
-	win_btn.custom_minimum_size = Vector2(190, 36)
-	win_btn.position = Vector2(226, 750)
-	
-	var normal_style = StyleBoxFlat.new()
-	normal_style.bg_color = Color("#24B273")
-	normal_style.corner_radius_top_left = 8
-	normal_style.corner_radius_top_right = 8
-	normal_style.corner_radius_bottom_left = 8
-	normal_style.corner_radius_bottom_right = 8
-	win_btn.add_theme_stylebox_override("normal", normal_style)
-	win_btn.add_theme_color_override("font_color", Color.WHITE)
-	win_btn.add_theme_font_size_override("font_size", 11)
-	
-	ui_manager.hud.add_child(win_btn)
-	win_btn.pressed.connect(func() -> void:
-		ui_manager.show_victory("Player 1", simulated_units.size() - 1, turns, 85)
-		win_btn.queue_free()
-	)
-
-func _create_demo_map_button() -> void:
-	var map_btn = TouchButton.new()
-	map_btn.name = "DemoMapButton"
-	map_btn.text = "🗺️ CARTE : " + current_map_name.to_upper()
-	map_btn.custom_minimum_size = Vector2(190, 36)
-	map_btn.position = Vector2(16, 750)
-	
-	var normal_style = StyleBoxFlat.new()
-	normal_style.bg_color = Color("#1D1D21")
-	normal_style.corner_radius_top_left = 8
-	normal_style.corner_radius_top_right = 8
-	normal_style.corner_radius_bottom_left = 8
-	normal_style.corner_radius_bottom_right = 8
-	map_btn.add_theme_stylebox_override("normal", normal_style)
-	map_btn.add_theme_color_override("font_color", Color.WHITE)
-	map_btn.add_theme_font_size_override("font_size", 11)
-	
-	ui_manager.hud.add_child(map_btn)
-	map_btn.pressed.connect(func() -> void:
-		var keys = MAP_PRESETS.keys()
-		var idx = keys.find(current_map_name)
-		var next_idx = (idx + 1) % keys.size()
-		current_map_name = keys[next_idx]
-		obstacle_cells.assign(MAP_PRESETS[current_map_name])
-		map_btn.text = "🗺️ CARTE : " + current_map_name.to_upper()
-		
-		_spawn_floating_damage_text(Vector2(216, 320), "Carte : " + current_map_name.to_upper())
-		queue_redraw()
-	)
 
 func _on_move_mode() -> void:
 	# En J1 vs J2, le joueur 2 contrôle le rouge pendant le "tour ennemi".

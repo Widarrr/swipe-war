@@ -1297,8 +1297,11 @@ func _draw() -> void:
 		var is_enemy = _get_is_enemy(unit)
 		var color = Color("#FF4B57") if is_enemy else Color("#00D2FF")
 		
-		# Rendu du véhicule vectoriel stylisé en 2D selon son type
-		_draw_vector_vehicle(unit, color, not is_enemy and unit == active_unit)
+		# Rendu du véhicule vectoriel stylisé en 2D selon son type.
+		# Halo de sélection : sur l'unité active, sauf quand c'est l'IA qui joue
+		# (en J1 vs J2, le joueur 2 doit voir son unité rouge sélectionnée).
+		var is_active = unit == active_unit and not (is_enemy_turn and is_vs_ia)
+		_draw_vector_vehicle(unit, color, is_active)
 
 # Jauge de force vectorielle en forme de cadran / compteur de vitesse
 func _draw_speedometer(start_pos: Vector2, pct: float, is_perfect: bool, drag_len: float) -> void:
@@ -1392,7 +1395,7 @@ func _draw_vector_tank(unit: Node2D, color: Color, is_active: bool) -> void:
 	
 	if is_active:
 		var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
-		var ring_color = Color("#00D2FF", 0.35 if current_mode == "move" else 0.18)
+		var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
 		draw_circle(pos, 22.0 * pulse, ring_color)
 		draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
 
@@ -1483,7 +1486,7 @@ func _draw_vector_car(unit: Node2D, color: Color, is_active: bool) -> void:
 	
 	if is_active:
 		var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
-		var ring_color = Color("#00D2FF", 0.35 if current_mode == "move" else 0.18)
+		var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
 		draw_circle(pos, 22.0 * pulse, ring_color)
 		draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
 
@@ -1564,7 +1567,7 @@ func _draw_vector_plane(unit: Node2D, color: Color, is_active: bool) -> void:
 	
 	if is_active:
 		var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
-		var ring_color = Color("#00D2FF", 0.35 if current_mode == "move" else 0.18)
+		var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
 		draw_circle(pos, 22.0 * pulse, ring_color)
 		draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
 

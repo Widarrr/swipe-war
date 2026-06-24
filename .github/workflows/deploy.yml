@@ -24,7 +24,7 @@ jobs:
       - name: "Setup Godot"
         uses: chickensoft-games/setup-godot@v2
         with:
-          version: 4.6.2
+          version: 4.6.3
           use-dotnet: false
           include-templates: true
 
@@ -68,14 +68,11 @@ jobs:
         run: |
           godot --headless --export-release "Web" build/web/index.html
 
-      - name: "Install Android build template and export APK"
+      - name: "Export Android APK"
         run: |
-          TEMPLATES_DIR="$HOME/.local/share/godot/export_templates/4.6.2.stable"
-          mkdir -p android/build
-          unzip -o "$TEMPLATES_DIR/android_source.zip" -d android/build
-          echo "4.6.2.stable.official" > android/build/.build_version
-          touch android/.gdignore
-
+          # Le preset Android utilise le template pre-compile (use_gradle_build=false),
+          # pas besoin d'installer le build template Gradle ni d'un dossier android/build.
+          # La signature debug passe par les variables GODOT_ANDROID_KEYSTORE_DEBUG_* definies plus haut.
           godot --headless --verbose --export-debug "Android" build/android/swipe-war.apk
 
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"
@@ -95,48 +92,26 @@ jobs:
           name: swipe-war-android
           path: build/android/swipe-war.apk
 
-  build-ios:
-    runs-on: macos-latest
+  # Publie l'APK comme asset de Release (pas de limite de 100 Mo, URL stable :
+  # https://github.com/Widarrr/swipe-war/releases/latest/download/swipe-war.apk)
+  release-android:
+    runs-on: ubuntu-latest
+    needs: build-web-and-android
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@v4
-
-      - name: "Setup Godot"
-        uses: chickensoft-games/setup-godot@v2
+      - name: "Download Android APK Artifact"
+        uses: actions/download-artifact@v4
         with:
-          version: 4.6.2
-          use-dotnet: false
-          include-templates: true
+          name: swipe-war-android
+          path: .
 
-      - name: "Configure Godot editor settings"
-        run: |
-          mkdir -p ~/Library/Application\ Support/Godot
-          cat > ~/Library/Application\ Support/Godot/editor_settings-4.tres << 'EOF'
-          [gd_resource type="EditorSettings" format=3]
-
-          [resource]
-          EOF
-          cp ~/Library/Application\ Support/Godot/editor_settings-4.tres \
-             ~/Library/Application\ Support/Godot/editor_settings-4.6.tres
-
-      - name: "Create iOS build directory"
-        run: |
-          mkdir -p build/ios
-
-      - name: "Export iOS Xcode Project"
-        run: |
-          godot --headless --export-debug "iOS" build/ios/SwipeWar
-
-      - name: "Zip Xcode Project"
-        run: |
-          cd build
-          zip -r ios-xcode-project.zip ios/
-
-      - name: "Upload iOS Artifact"
-        uses: actions/upload-artifact@v4
+      - name: "Publish APK to GitHub Releases"
+        uses: softprops/action-gh-release@v2
         with:
-          name: swipe-war-ios
-          path: build/ios-xcode-project.zip
+          tag_name: latest
+          name: "Swipe War — dernier build"
+          body: "APK Android du dernier commit sur master. Installable directement sur un téléphone."
+          files: swipe-war.apk
 
   deploy-web:
     runs-on: ubuntu-latest
@@ -151,6 +126,10 @@ jobs:
         with:
           name: swipe-war-web
           path: build/web
+
+      - name: "Add download page (QR code -> APK release)"
+        run: |
+          cp web_extra/download.html build/web/download.html
 
       - name: "Deploy to GitHub Pages"
         uses: peaceiris/actions-gh-pages@v3

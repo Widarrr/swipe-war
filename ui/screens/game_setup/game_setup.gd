@@ -2,7 +2,7 @@
 extends UIScreen
 
 signal back_pressed
-signal start_match_pressed(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, vs_ia: bool, map_name: String)
+signal start_match_pressed(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int)
 
 # Valeurs de configuration par défaut et limites pour la boutique
 const BUDGET_MAX = 150
@@ -13,6 +13,13 @@ const COST_CAR = 30
 var num_tanks: int = 1
 var num_planes: int = 1
 var num_cars: int = 1
+
+# Équipe du joueur 2 (configurée uniquement en mode J1 vs J2)
+var p2_num_tanks: int = 1
+var p2_num_planes: int = 1
+var p2_num_cars: int = 1
+# Joueur dont on édite l'équipe à l'étape boutique (1 = bleu, 2 = rouge)
+var editing_player: int = 1
 
 const AP_MIN = 3
 const AP_MAX = 10
@@ -39,6 +46,7 @@ var tank_val_label: Label
 var plane_val_label: Label
 var car_val_label: Label
 var budget_label: Label
+var shop_title_label: Label
 
 # Références des cartes et étapes
 var mode_card_ia: Button
@@ -605,13 +613,14 @@ func _setup_team_shop() -> void:
 	shop_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin_container.add_child(shop_vbox)
 	
-	# Titre de la carte boutique
+	# Titre de la carte boutique (mis à jour selon le joueur édité)
 	var title = Label.new()
 	title.text = "Créer son Équipe (Max 5 véhicules)"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color("#00D2FF"))
 	title.add_theme_font_size_override("font_size", 13)
 	shop_vbox.add_child(title)
+	shop_title_label = title
 	
 	# Récupérer les styles existants des autres boutons pour préserver l'esthétique premium
 	var ref_minus = $VBoxContainer/CardsContainer/APCard/Margin/HBox/ControlArea/AdjusterHBox/MinusButton
@@ -619,17 +628,17 @@ func _setup_team_shop() -> void:
 	var pressed_style = ref_minus.get_theme_stylebox("pressed") if ref_minus else null
 	
 	# Ligne Tank
-	var tank_hbox = _create_shop_row("🛡️ Tank (50 pts)\nLourd - Résistant - Masse 1.8x", num_tanks, func(val: int): num_tanks = val; _update_shop_ui(), normal_style, pressed_style)
+	var tank_hbox = _create_shop_row("🛡️ Tank (50 pts)\nLourd - Résistant - Masse 1.8x", num_tanks, func(val: int): _set_vehicle_count("tank", val), normal_style, pressed_style)
 	tank_val_label = tank_hbox.get_node("Value")
 	shop_vbox.add_child(tank_hbox)
-	
+
 	# Ligne Avion
-	var plane_hbox = _create_shop_row("✈️ Avion (40 pts)\nLéger - Rapide - Masse 0.6x", num_planes, func(val: int): num_planes = val; _update_shop_ui(), normal_style, pressed_style)
+	var plane_hbox = _create_shop_row("✈️ Avion (40 pts)\nLéger - Rapide - Masse 0.6x", num_planes, func(val: int): _set_vehicle_count("plane", val), normal_style, pressed_style)
 	plane_val_label = plane_hbox.get_node("Value")
 	shop_vbox.add_child(plane_hbox)
-	
+
 	# Ligne Voiture
-	var car_hbox = _create_shop_row("🚗 Voiture (30 pts)\nMoyen - Équilibré - Masse 1.0x", num_cars, func(val: int): num_cars = val; _update_shop_ui(), normal_style, pressed_style)
+	var car_hbox = _create_shop_row("🚗 Voiture (30 pts)\nMoyen - Équilibré - Masse 1.0x", num_cars, func(val: int): _set_vehicle_count("car", val), normal_style, pressed_style)
 	car_val_label = car_hbox.get_node("Value")
 	shop_vbox.add_child(car_hbox)
 	
@@ -688,17 +697,52 @@ func _create_shop_row(label_text: String, initial_val: int, on_change: Callable,
 	
 	return hbox
 
+# Écrit la quantité d'un véhicule dans l'équipe du joueur en cours d'édition.
+func _set_vehicle_count(type: String, val: int) -> void:
+	if editing_player == 1:
+		match type:
+			"tank": num_tanks = val
+			"plane": num_planes = val
+			"car": num_cars = val
+	else:
+		match type:
+			"tank": p2_num_tanks = val
+			"plane": p2_num_planes = val
+			"car": p2_num_cars = val
+	_update_shop_ui()
+
+# Quantités de l'équipe en cours d'édition (P1 ou P2).
+func _active_counts() -> Array:
+	if editing_player == 1:
+		return [num_tanks, num_planes, num_cars]
+	return [p2_num_tanks, p2_num_planes, p2_num_cars]
+
+# Réinitialise la boutique pour le joueur courant (titre, couleur, valeurs).
+func _refresh_shop_for_player() -> void:
+	if shop_title_label:
+		if editing_player == 2:
+			shop_title_label.text = "Équipe Joueur 2 — Rouge (Max 5)"
+			shop_title_label.add_theme_color_override("font_color", Color("#FF4B57"))
+		else:
+			shop_title_label.text = "Créer son Équipe (Max 5 véhicules)"
+			shop_title_label.add_theme_color_override("font_color", Color("#00D2FF"))
+	_update_shop_ui()
+
 func _update_shop_ui() -> void:
-	var total_cost = (num_tanks * COST_TANK) + (num_planes * COST_PLANE) + (num_cars * COST_CAR)
+	var counts = _active_counts()
+	var n_tanks = counts[0]
+	var n_planes = counts[1]
+	var n_cars = counts[2]
+	var total_cost = (n_tanks * COST_TANK) + (n_planes * COST_PLANE) + (n_cars * COST_CAR)
 	var remaining = BUDGET_MAX - total_cost
-	var total_vehicles = num_tanks + num_planes + num_cars
-	
+	var total_vehicles = n_tanks + n_planes + n_cars
+
 	if tank_val_label:
-		tank_val_label.text = str(num_tanks)
+		tank_val_label.text = str(n_tanks)
 	if plane_val_label:
-		plane_val_label.text = str(num_planes)
+		plane_val_label.text = str(n_planes)
 	if car_val_label:
-		car_val_label.text = str(num_cars)
+		car_val_label.text = str(n_cars)
 		
 	if budget_label:
 		if remaining < 0:
@@ -759,6 +803,7 @@ func _on_hp_plus() -> void:
 
 func open_screen() -> void:
 	current_step = 1
+	editing_player = 1
 	_update_step_view()
 	super.open_screen()
 
@@ -818,13 +863,30 @@ func _update_step_view() -> void:
 		if ap_card: ap_card.hide()
 		if hp_card: hp_card.hide()
 		
-		if title_label: title_label.text = "4. Composer l'Équipe"
-		if start_match_btn:
-			start_match_btn.text = "Lancer le Match"
-			_update_shop_ui()
+		# En J1 vs J2 : étape équipe en deux temps (J1 puis J2).
+		if not vs_ia and editing_player == 1:
+			if title_label: title_label.text = "4. Équipe Joueur 1"
+			if start_match_btn:
+				start_match_btn.text = "Suivant >"
+		elif not vs_ia and editing_player == 2:
+			if title_label: title_label.text = "4. Équipe Joueur 2"
+			if start_match_btn:
+				start_match_btn.text = "Lancer le Match"
+		else:
+			if title_label: title_label.text = "4. Composer l'Équipe"
+			if start_match_btn:
+				start_match_btn.text = "Lancer le Match"
+		_update_shop_ui()
 
 func _on_back_pressed() -> void:
 	if current_step == 4:
+		# En J1 vs J2, l'étape équipe se fait en deux temps (J1 puis J2).
+		if editing_player == 2:
+			editing_player = 1
+			_refresh_shop_for_player()
+			_update_step_view()
+			_animate_cards_transition()
+			return
 		current_step = 3
 		_update_step_view()
 		_animate_cards_transition()
@@ -850,10 +912,19 @@ func _on_next_pressed() -> void:
 		_animate_cards_transition()
 	elif current_step == 3:
 		current_step = 4
+		editing_player = 1
+		_refresh_shop_for_player()
 		_update_step_view()
 		_animate_cards_transition()
 	else:
-		_on_start_match_pressed()
+		# Étape équipe. En J1 vs J2, on enchaîne J1 -> J2 avant de lancer.
+		if not vs_ia and editing_player == 1:
+			editing_player = 2
+			_refresh_shop_for_player()
+			_update_step_view()
+			_animate_cards_transition()
+		else:
+			_on_start_match_pressed()
 
 func _animate_cards_transition() -> void:
 	var cards_container = $VBoxContainer/CardsContainer
@@ -865,7 +936,12 @@ func _animate_cards_transition() -> void:
 	tween.tween_property(cards_container, "scale", Vector2.ONE, 0.2).from(Vector2(0.96, 0.96))
 
 func _on_start_match_pressed() -> void:
-	start_match_pressed.emit(num_tanks, num_cars, num_planes, action_points, hit_points, vs_ia, selected_map_name)
+	# En J1 vs J2, on transmet l'équipe configurée par le joueur 2.
+	# En mode IA, on envoie -1 (sentinelle) pour que l'équipe rouge soit générée.
+	var p2_t := p2_num_tanks if not vs_ia else -1
+	var p2_c := p2_num_cars if not vs_ia else -1
+	var p2_p := p2_num_planes if not vs_ia else -1
+	start_match_pressed.emit(num_tanks, num_cars, num_planes, action_points, hit_points, vs_ia, selected_map_name, p2_t, p2_c, p2_p)
 
 # Rétrocompatibilité et feedback visuel de transition sur le texte quand la valeur change
 func _play_feedback_animation(target_label: Label) -> void:

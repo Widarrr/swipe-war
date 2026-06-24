@@ -1,7 +1,13 @@
 # export.ps1 - Script d'export local pour Windows
 # Nécessite que godot.exe soit dans votre PATH ou spécifié ci-dessous
 
-$GodotPath = "godot" # Modifiez si godot n'est pas dans le PATH
+$GodotPath = "C:\Users\ayoub\Downloads\godot463\Godot_v4.6.3-stable_win64.exe" # Modifiez si besoin
+
+# Keystore debug : Godot efface "debug_keystore_user" des Editor Settings,
+# donc on le fournit ici via variables d'environnement (sinon erreur de config Android).
+$env:GODOT_ANDROID_KEYSTORE_DEBUG_PATH = "C:/Users/ayoub/AppData/Roaming/Godot/keystores/debug.keystore"
+$env:GODOT_ANDROID_KEYSTORE_DEBUG_USER = "androiddebugkey"
+$env:GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = "android"
 
 Write-Host "=== Swipe War: Export Local ===" -ForegroundColor Cyan
 

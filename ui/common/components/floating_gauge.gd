@@ -35,7 +35,12 @@ func _process(_delta: float) -> void:
 ## Configure l'unité ciblée et s'abonne à ses signaux si disponibles
 func setup(unit: Node2D) -> void:
 	target_unit = unit
-	
+
+	# Les unités ennemies (rouges) sont en bas de l'écran : on place leur jauge
+	# SOUS le véhicule pour ne pas masquer le plateau ni sortir de l'écran.
+	if target_unit.get("is_enemy"):
+		offset = Vector2(0, 35)
+
 	# Si l'unité a des signaux de mise à jour, on s'y connecte de façon dynamique et sécurisée
 	if target_unit.has_signal("hp_changed"):
 		target_unit.connect("hp_changed", _on_unit_hp_changed)

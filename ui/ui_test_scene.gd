@@ -445,13 +445,15 @@ func _create_demo_map_button() -> void:
 	)
 
 func _on_move_mode() -> void:
-	if is_enemy_turn:
+	# En J1 vs J2, le joueur 2 contrôle le rouge pendant le "tour ennemi".
+	# On ne bloque les modes que lorsque c'est l'IA qui joue.
+	if is_enemy_turn and is_vs_ia:
 		return
 	current_mode = "move"
 	queue_redraw()
 
 func _on_shoot_mode() -> void:
-	if is_enemy_turn:
+	if is_enemy_turn and is_vs_ia:
 		return
 	current_mode = "shoot"
 	queue_redraw()

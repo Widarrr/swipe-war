@@ -79,8 +79,12 @@ func test_camera_zoom_min() -> void:
 	assert_eq(_gp.CAM_ZOOM_MIN, 0.08, "Le dézoom minimum doit être de 0.08")
 
 func test_spawn_rows_clear_of_obstacles() -> void:
-	# Les équipes J1 et J2 spawnent respectivement aux lignes 52 et 12 (centre +/- 20)
+	# Les équipes J1 et J2 spawnent respectivement aux lignes 57 et 7 (centre +/- 25)
+	# La zone protégée couvre ±5 lignes autour de chaque spawn (lignes 52-62 et 2-12)
+	var center = _gp.GRID_ROWS / 2  # 32
+	var spawn_j1 = center + 25      # 57
+	var spawn_j2 = center - 25      # 7
 	for preset_name in _gp.MAP_PRESETS.keys():
 		for cell in _gp.MAP_PRESETS[preset_name]:
-			assert_ne(cell.y, 52, "Pas d'obstacle sur la ligne de spawn J1 (ligne 52) - preset %s" % preset_name)
-			assert_ne(cell.y, 12, "Pas d'obstacle sur la ligne de spawn J2 (ligne 12) - preset %s" % preset_name)
+			assert_true(abs(cell.y - spawn_j1) > 5, "Pas d'obstacle dans la zone de spawn J1 (lignes 52-62) - preset %s, obstacle en y=%d" % [preset_name, cell.y])
+			assert_true(abs(cell.y - spawn_j2) > 5, "Pas d'obstacle dans la zone de spawn J2 (lignes 2-12) - preset %s, obstacle en y=%d" % [preset_name, cell.y])

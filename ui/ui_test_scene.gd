@@ -85,11 +85,11 @@ func _is_spawn_zone(y: int) -> bool:
 	# Zone centrale
 	if abs(y - GRID_ROWS / 2) <= 4:
 		return true
-	# Zone spawn J1 (bas)
-	if abs(y - (GRID_ROWS / 2 + 20)) <= 2:
+	# Zone spawn J1 (bas) – tolérance de 5 lignes autour de la ligne de spawn
+	if abs(y - (GRID_ROWS / 2 + 25)) <= 5:
 		return true
-	# Zone spawn J2 (haut)
-	if abs(y - (GRID_ROWS / 2 - 20)) <= 2:
+	# Zone spawn J2 (haut) – tolérance de 5 lignes autour de la ligne de spawn
+	if abs(y - (GRID_ROWS / 2 - 25)) <= 5:
 		return true
 	return false
 
@@ -485,9 +485,9 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		elif type == "plane":
 			unit_hp_max = int(hp_max * 0.6)
 			
-		# Joueur 1 (bleu) : placé au centre vertical, décalé vers le bas
+		# Joueur 1 (bleu) : placé au centre vertical, décalé vers le bas (synchro avec _is_spawn_zone)
 		var col = (GRID_COLUMNS - player_types.size()) / 2 + i
-		var row = GRID_ROWS / 2 + 20
+		var row = GRID_ROWS / 2 + 25
 		unit.global_position = Vector2(OFFSET_X + col * CELL_WIDTH + CELL_WIDTH / 2.0, OFFSET_Y + row * CELL_WIDTH + CELL_WIDTH / 2.0)
 		add_child(unit)
 		simulated_units.append(unit)
@@ -522,9 +522,9 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		elif type == "plane":
 			enemy_hp_max = int(hp_max * 0.6)
 			
-		# Joueur 2 / IA (rouge) : placé au centre vertical, décalé vers le haut (40 cases d'écart avec J1)
+		# Joueur 2 / IA (rouge) : placé au centre vertical, décalé vers le haut (50 cases d'écart avec J1)
 		var col = (GRID_COLUMNS - enemy_types.size()) / 2 + i
-		var row = GRID_ROWS / 2 - 20
+		var row = GRID_ROWS / 2 - 25
 		enemy.global_position = Vector2(OFFSET_X + col * CELL_WIDTH + CELL_WIDTH / 2.0, OFFSET_Y + row * CELL_WIDTH + CELL_WIDTH / 2.0)
 		add_child(enemy)
 		simulated_units.append(enemy)

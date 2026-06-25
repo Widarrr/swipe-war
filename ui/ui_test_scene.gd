@@ -355,6 +355,16 @@ func _generate_enemy_team(budget: int) -> Array[String]:
 		remaining -= chosen.cost
 	return team
 
+# Applique la couleur d'équipe à la barre de vie d'une jauge flottante.
+func _set_gauge_fill_color(gauge, color: Color) -> void:
+	var fill_style = StyleBoxFlat.new()
+	fill_style.bg_color = color
+	fill_style.corner_radius_top_left = 1
+	fill_style.corner_radius_top_right = 1
+	fill_style.corner_radius_bottom_left = 1
+	fill_style.corner_radius_bottom_right = 1
+	gauge.health_bar.add_theme_stylebox_override("fill", fill_style)
+
 func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_max: int, p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1, budget: int = 150) -> void:
 	_on_match_cleaned()
 	queue_redraw()
@@ -393,14 +403,7 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		unit.set("action_points", ap_max)
 		unit.set("max_action_points", ap_max)
 		
-		var gauge = ui_manager.hud.create_floating_gauge(unit)
-		var fill_style = StyleBoxFlat.new()
-		fill_style.bg_color = Color("#00D2FF")
-		fill_style.corner_radius_top_left = 1
-		fill_style.corner_radius_top_right = 1
-		fill_style.corner_radius_bottom_left = 1
-		fill_style.corner_radius_bottom_right = 1
-		gauge.health_bar.add_theme_stylebox_override("fill", fill_style)
+		_set_gauge_fill_color(ui_manager.hud.create_floating_gauge(unit), Color("#00D2FF"))
 		
 	# Équipe ennemie (rouge) : en J1 vs J2, on utilise la composition choisie
 	# par le joueur 2 ; en mode IA (sentinelle -1), on la génère aléatoirement.
@@ -437,14 +440,7 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		enemy.set("action_points", 0) # Commence sans PA (tour P1)
 		enemy.set("max_action_points", ap_max)
 		
-		var gauge = ui_manager.hud.create_floating_gauge(enemy)
-		var fill_style = StyleBoxFlat.new()
-		fill_style.bg_color = Color("#FF4B57") # Rouge pour l'ennemi
-		fill_style.corner_radius_top_left = 1
-		fill_style.corner_radius_top_right = 1
-		fill_style.corner_radius_bottom_left = 1
-		fill_style.corner_radius_bottom_right = 1
-		gauge.health_bar.add_theme_stylebox_override("fill", fill_style)
+		_set_gauge_fill_color(ui_manager.hud.create_floating_gauge(enemy), Color("#FF4B57"))
 		
 	_update_red_team_health_bar()
 
@@ -1444,6 +1440,13 @@ func _draw_speedometer(start_pos: Vector2, pct: float, is_perfect: bool, drag_le
 	draw_circle(center, 2.5, needle_color)
 	draw_circle(center, 1.0, Color.BLACK if not is_perfect else col_perfect)
 
+# Halo de sélection pulsé autour de l'unité active (couleur de l'équipe).
+func _draw_selection_halo(pos: Vector2, color: Color) -> void:
+	var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
+	var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
+	draw_circle(pos, 22.0 * pulse, ring_color)
+	draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
+
 # Dispatcher de dessin selon le type de véhicule
 func _draw_vector_vehicle(unit: Node2D, color: Color, is_active: bool) -> void:
 	var v_type = unit.get("vehicle_type")
@@ -1465,10 +1468,7 @@ func _draw_vector_tank(unit: Node2D, color: Color, is_active: bool) -> void:
 	if facing == null: facing = Vector2.DOWN
 	
 	if is_active:
-		var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
-		var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
-		draw_circle(pos, 22.0 * pulse, ring_color)
-		draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
+		_draw_selection_halo(pos, color)
 
 	draw_circle(pos + Vector2(0, 3), 15.0, Color(0, 0, 0, 0.4))
 	
@@ -1556,10 +1556,7 @@ func _draw_vector_car(unit: Node2D, color: Color, is_active: bool) -> void:
 	if facing == null: facing = Vector2.DOWN
 	
 	if is_active:
-		var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
-		var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
-		draw_circle(pos, 22.0 * pulse, ring_color)
-		draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
+		_draw_selection_halo(pos, color)
 
 	draw_circle(pos + Vector2(0, 3), 14.0, Color(0, 0, 0, 0.4))
 	
@@ -1637,10 +1634,7 @@ func _draw_vector_plane(unit: Node2D, color: Color, is_active: bool) -> void:
 	if facing == null: facing = Vector2.DOWN
 	
 	if is_active:
-		var pulse = 1.0 + 0.1 * sin(Time.get_ticks_msec() * 0.008)
-		var ring_color = Color(color, 0.35 if current_mode == "move" else 0.18)
-		draw_circle(pos, 22.0 * pulse, ring_color)
-		draw_arc(pos, 22.0 * pulse, 0, TAU, 32, ring_color.lightened(0.15), 1.5)
+		_draw_selection_halo(pos, color)
 
 	draw_circle(pos + Vector2(0, 6), 12.0, Color(0, 0, 0, 0.25))
 	

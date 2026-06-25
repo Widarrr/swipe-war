@@ -475,7 +475,7 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		var unit = SimulatedVehicle.new()
 		unit.name = "P1_Vehicle_%d" % i
 		unit.is_enemy = false
-		unit.facing_direction = Vector2.DOWN # Fait face à l'ennemi
+		unit.facing_direction = Vector2.UP # Fait face à l'ennemi (en haut)
 		unit.vehicle_type = type
 		
 		# Ajuster les PV selon le type
@@ -513,7 +513,7 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		var enemy = SimulatedVehicle.new()
 		enemy.name = "P2_Vehicle_%d" % i
 		enemy.is_enemy = true
-		enemy.facing_direction = Vector2.UP # Fait face au joueur
+		enemy.facing_direction = Vector2.DOWN # Fait face au joueur (en bas)
 		enemy.vehicle_type = type
 		
 		var enemy_hp_max = hp_max
@@ -1183,7 +1183,8 @@ func _handle_shoot_swipe(drag_vector: Vector2) -> void:
 		"bounces_left": 3,
 		"damage": damage,
 		"is_enemy": is_enemy_turn,
-		"color": default_proj_color if not is_perfect else Color("#FFD700") # Or brillant pour Perfect Shot
+		"color": default_proj_color if not is_perfect else Color("#FFD700"), # Or brillant pour Perfect Shot
+		"is_rainbow": is_perfect
 	}
 	active_projectiles.append(proj)
 	
@@ -1460,7 +1461,7 @@ func _draw() -> void:
 					var next_pos = current_pos + current_dir * step
 					distance_traveled += step
 					
-					# Collision avec les bordures 6x10
+					# Collision avec les bordures de la carte 64x64
 					var margin = 20.0
 					if next_pos.x < (OFFSET_X + margin) or next_pos.x > (OFFSET_X + GRID_COLUMNS * CELL_WIDTH - margin) or next_pos.y < (OFFSET_Y + margin) or next_pos.y > (OFFSET_Y + GRID_ROWS * CELL_WIDTH - margin):
 						var normal = _get_boundary_collision_normal(current_pos)

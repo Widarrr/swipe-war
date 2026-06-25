@@ -115,13 +115,13 @@ func change_screen(new_screen_type: ScreenType, use_transition: bool = true) -> 
 
 # --- Callbacks de navigation interne ---
 
-func _on_start_match_requested(tanks: int, cars: int, planes: int, ap: int, hp: int, game_mode: int, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int) -> void:
+func _on_start_match_requested(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, game_mode: int, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int) -> void:
 	# Enregistrer les paramètres pour le bouton "Play Again"
 	_last_match_settings["tanks"] = tanks
 	_last_match_settings["cars"] = cars
 	_last_match_settings["planes"] = planes
-	_last_match_settings["ap"] = ap
-	_last_match_settings["hp"] = hp
+	_last_match_settings["ap"] = action_points
+	_last_match_settings["hp"] = hit_points
 	_last_match_settings["game_mode"] = game_mode
 	_last_match_settings["map_name"] = map_name
 	_last_match_settings["p2_tanks"] = p2_tanks
@@ -134,10 +134,10 @@ func _on_start_match_requested(tanks: int, cars: int, planes: int, ap: int, hp: 
 
 	# Mettre à jour l'affichage AP initial dans le HUD
 	if hud and hud.has_method("update_ap_display"):
-		hud.update_ap_display("P1", ap, ap, true)
+		hud.update_ap_display("P1", action_points, action_points, true)
 
 	# Émettre le signal global pour que le gameplay instancie la grille et les tanks
-	match_started.emit(tanks, cars, planes, hp, ap, game_mode, map_name, p2_tanks, p2_cars, p2_planes, budget)
+	match_started.emit(tanks, cars, planes, hit_points, action_points, game_mode, map_name, p2_tanks, p2_cars, p2_planes, budget)
 
 func _on_play_again_requested() -> void:
 	change_screen(ScreenType.HUD)

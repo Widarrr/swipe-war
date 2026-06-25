@@ -26,24 +26,25 @@ var is_perfect_zone: bool = false
 var perfect_timer: float = 0.0
 var oscillation_time: float = 0.0
 
-# Configuration de la Grande Grille 12x24 (monde en coordonnées (0,0)-(768,1536))
-const GRID_COLUMNS = 12
-const GRID_ROWS = 24
+# Configuration de la Grande Grille 64x64 (monde en coordonnées (0,0)-(4096,4096))
+const GRID_COLUMNS = 64
+const GRID_ROWS = 64
 const CELL_WIDTH = 64
 const OFFSET_X = 0
 const OFFSET_Y = 0
+const MAX_SHOOT_RANGE = 600.0
 
-# Obstacles centrés sur la grande carte (centre ~ colonne 6, ligne 12)
-const MAP_PRESETS = {
-	"classic": [Vector2i(5, 11), Vector2i(6, 11), Vector2i(5, 12), Vector2i(6, 12)],
-	"cross": [Vector2i(5, 11), Vector2i(6, 11), Vector2i(5, 12), Vector2i(6, 12), Vector2i(5, 9), Vector2i(6, 9), Vector2i(5, 14), Vector2i(6, 14), Vector2i(3, 11), Vector2i(3, 12), Vector2i(8, 11), Vector2i(8, 12)],
-	"pillars": [Vector2i(2, 6), Vector2i(9, 6), Vector2i(2, 17), Vector2i(9, 17), Vector2i(5, 11), Vector2i(6, 12)],
-	"corridor": [Vector2i(0, 11), Vector2i(1, 11), Vector2i(2, 11), Vector2i(0, 12), Vector2i(1, 12), Vector2i(2, 12), Vector2i(9, 11), Vector2i(10, 11), Vector2i(11, 11), Vector2i(9, 12), Vector2i(10, 12), Vector2i(11, 12)]
+var game_mode: int = 0
+var obstacle_grid: Dictionary = {}
+
+var MAP_PRESETS = {
+	"classic": [],
+	"cross": [],
+	"pillars": [],
+	"corridor": []
 }
 var current_map_name: String = "classic"
-var obstacle_cells: Array[Vector2i] = [
-	Vector2i(5, 11), Vector2i(6, 11), Vector2i(5, 12), Vector2i(6, 12)
-]
+var obstacle_cells: Array[Vector2i] = []
 
 # Gestion des projectiles physiques
 var active_projectiles: Array[Dictionary] = []
@@ -56,7 +57,7 @@ var show_laser: bool = false
 
 # --- Caméra (zoom / déplacement sur la grande carte) ---
 var camera: Camera2D
-const CAM_ZOOM_MIN := 0.45   # dézoomé : vue large
+const CAM_ZOOM_MIN := 0.08   # dézoomé : vue large (permet de voir toute la carte 64x64)
 const CAM_ZOOM_MAX := 2.0    # zoomé : gros plan
 var cam_zoom: float = 1.2
 # Suivi des doigts pour les gestes (index -> position écran)
@@ -72,6 +73,70 @@ var _press_screen_pos: Vector2 = Vector2.ZERO
 # Dimensions du monde (carte) en pixels
 func _world_size() -> Vector2:
 	return Vector2(GRID_COLUMNS * CELL_WIDTH, GRID_ROWS * CELL_WIDTH)
+
+func _init() -> void:
+	# Générer les cellules pour les presets de carte afin de passer les tests unitaires statiques
+	MAP_PRESETS["classic"] = _generate_map_cells("classic")
+	MAP_PRESETS["cross"] = _generate_map_cells("cross")
+	MAP_PRESETS["pillars"] = _generate_map_cells("pillars")
+	MAP_PRESETS["corridor"] = _generate_map_cells("corridor")
+
+func _is_spawn_zone(y: int) -> bool:
+	# Zone centrale
+	if abs(y - GRID_ROWS / 2) <= 4:
+		return true
+	# Zone spawn J1 (bas)
+	if abs(y - (GRID_ROWS / 2 + 20)) <= 2:
+		return true
+	# Zone spawn J2 (haut)
+	if abs(y - (GRID_ROWS / 2 - 20)) <= 2:
+		return true
+	return false
+
+func _generate_map_cells(preset_name: String) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	match preset_name:
+		"classic":
+			# Plusieurs ruines 2x2 dispersées symétriquement
+			for ry in range(8, GRID_ROWS - 8, 8):
+				for rx in range(8, GRID_COLUMNS - 8, 8):
+					# Laisser les zones de spawn dégagées
+					if not _is_spawn_zone(ry) and not _is_spawn_zone(ry + 1):
+						var seed_val = ry * 31 + rx
+						if (seed_val % 3) != 0:
+							cells.append(Vector2i(rx, ry))
+							cells.append(Vector2i(rx + 1, ry))
+							cells.append(Vector2i(rx, ry + 1))
+							cells.append(Vector2i(rx + 1, ry + 1))
+		"cross":
+			# Une croix centrale qui divise la carte, avec des passages toutes les 10 cases
+			var center_x = GRID_COLUMNS / 2
+			var center_y = GRID_ROWS / 2
+			for y in range(4, GRID_ROWS - 4):
+				if abs(y - center_y) > 2 and (y % 10) != 0 and not _is_spawn_zone(y):
+					cells.append(Vector2i(center_x, y))
+					cells.append(Vector2i(center_x + 1, y))
+			for x in range(4, GRID_COLUMNS - 4):
+				if abs(x - center_x) > 2 and (x % 10) != 0:
+					cells.append(Vector2i(x, center_y))
+					cells.append(Vector2i(x, center_y + 1))
+		"pillars":
+			# Grille de piliers 2x2 solides et esthétiques
+			for y in range(6, GRID_ROWS - 6, 8):
+				for x in range(6, GRID_COLUMNS - 6, 8):
+					if not _is_spawn_zone(y) and not _is_spawn_zone(y + 1):
+						cells.append(Vector2i(x, y))
+						cells.append(Vector2i(x + 1, y))
+						cells.append(Vector2i(x, y + 1))
+						cells.append(Vector2i(x + 1, y + 1))
+		"corridor":
+			# Couloirs verticaux avec ouvertures horizontales
+			for x in range(10, GRID_COLUMNS - 10, 10):
+				for y in range(6, GRID_ROWS - 6):
+					if (y % 12) > 2 and not _is_spawn_zone(y):
+						cells.append(Vector2i(x, y))
+						cells.append(Vector2i(x + 1, y))
+	return cells
 
 func _ready() -> void:
 	# Fond sombre du viewport (visible hors carte quand on dézoome)
@@ -149,9 +214,18 @@ func _process(delta: float) -> void:
 		var steps = int(distance / step_size)
 		var hit_detected = false
 		
+		if not proj.has("distance_traveled"):
+			proj["distance_traveled"] = 0.0
+			
 		for step in range(1, steps + 1):
 			var check_pos = prev_pos + direction * (step * step_size)
+			var current_dist = proj["distance_traveled"] + (step * step_size)
 			
+			if current_dist >= MAX_SHOOT_RANGE:
+				hit_detected = true
+				proj.bounces_left = -1
+				break
+				
 			# 1. Collision avec un véhicule
 			var hit_unit = null
 			for unit in simulated_units:
@@ -179,6 +253,7 @@ func _process(delta: float) -> void:
 				_update_unit_gauge(hit_unit)
 				_spawn_floating_damage_text(hit_unit.global_position, "-%d HP" % dmg)
 				_update_red_team_health_bar()
+				_update_blue_team_health_bar()
 				
 				if new_hp <= 0:
 					if hit_unit == active_unit:
@@ -190,24 +265,20 @@ func _process(delta: float) -> void:
 				break
 				
 			# 2. Collision avec un obstacle
-			for cell in obstacle_cells:
-				var x_min = OFFSET_X + cell.x * CELL_WIDTH
-				var x_max = OFFSET_X + (cell.x + 1) * CELL_WIDTH
-				var y_min = OFFSET_Y + cell.y * CELL_WIDTH
-				var y_max = OFFSET_Y + (cell.y + 1) * CELL_WIDTH
-				if check_pos.x >= x_min and check_pos.x <= x_max and check_pos.y >= y_min and check_pos.y <= y_max:
-					if proj.bounces_left > 0:
-						var normal = _get_obstacle_collision_normal(check_pos - direction * 2.0, cell)
-						proj.velocity = proj.velocity.bounce(normal)
-						proj.position = check_pos + normal * 4.0
-						proj.bounces_left -= 1
-						proj.damage += 15 # Bonus de dégâts ricochet !
-						_spawn_floating_damage_text(check_pos, "Ricochet ! +15 Dmg")
-						hit_detected = true
-						break
-					else:
-						hit_detected = true
-						break
+			var cx: int = floori((check_pos.x - OFFSET_X) / CELL_WIDTH)
+			var cy: int = floori((check_pos.y - OFFSET_Y) / CELL_WIDTH)
+			var cell = Vector2i(cx, cy)
+			if obstacle_grid.has(cell):
+				if proj.bounces_left > 0:
+					var normal = _get_obstacle_collision_normal(check_pos - direction * 2.0, cell)
+					proj.velocity = proj.velocity.bounce(normal)
+					proj.position = check_pos + normal * 4.0
+					proj.bounces_left -= 1
+					proj.damage += 15 # Bonus de dégâts ricochet !
+					_spawn_floating_damage_text(check_pos, "Ricochet ! +15 Dmg")
+					hit_detected = true
+				else:
+					hit_detected = true
 			if hit_detected:
 				break
 				
@@ -235,6 +306,7 @@ func _process(delta: float) -> void:
 				proj_to_remove.append(proj)
 		else:
 			proj.position = next_pos
+			proj["distance_traveled"] += distance
 			
 		# Sécurité de sortie d'écran
 		if proj.position.x < 0 or proj.position.x > GRID_COLUMNS * CELL_WIDTH or proj.position.y < 0 or proj.position.y > GRID_ROWS * CELL_WIDTH:
@@ -257,33 +329,48 @@ func _check_game_over() -> void:
 				
 	if p1_alive == 0:
 		get_tree().create_timer(0.6).timeout.connect(func():
-			ui_manager.show_victory("Ennemi", p2_alive, turns, 75)
+			var p2_name = "Joueur 2"
+			if game_mode == 0: # VS IA
+				p2_name = "IA"
+			elif game_mode == 2: # IA VS IA
+				p2_name = "IA 2"
+			ui_manager.show_victory(p2_name, p2_alive, turns, 75, true)
 			_on_match_cleaned()
 		)
 	elif p2_alive == 0:
 		get_tree().create_timer(0.6).timeout.connect(func():
 			var accuracy = clamp(100 - (turns * 3), 50, 98)
-			ui_manager.show_victory("Player 1", p1_alive, turns, accuracy)
+			var p1_name = "Player 1"
+			if game_mode == 2: # IA VS IA
+				p1_name = "IA 1"
+			ui_manager.show_victory(p1_name, p1_alive, turns, accuracy, false)
 			_on_match_cleaned()
 		)
 
-func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_ia: bool = true, map_name: String = "classic", p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1, budget: int = 150) -> void:
+func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, game_mode: int = 0, map_name: String = "classic", p2_tanks: int = -1, p2_cars: int = -1, p2_planes: int = -1, budget: int = 150) -> void:
 	max_ap = ap
 	current_ap = ap
 	enemy_ap = ap
-	is_vs_ia = vs_ia
+	self.game_mode = game_mode
+	is_vs_ia = (game_mode == 0)
 	turns = 1
 	current_mode = "none"
 	is_enemy_turn = false
 	is_dragging = false
 	active_projectiles.clear()
 	current_map_name = map_name
+	
 	if MAP_PRESETS.has(map_name):
 		obstacle_cells.assign(MAP_PRESETS[map_name])
 	else:
 		obstacle_cells.assign(MAP_PRESETS["classic"])
+		
+	# Indexer dans la grille pour recherche rapide O(1)
+	obstacle_grid.clear()
+	for cell in obstacle_cells:
+		obstacle_grid[cell] = true
 	
-	print("Gameplay: Match démarré avec Tanks=%d, Cars=%d, Planes=%d, %d PV, %d PA max. VS IA=%s, Carte=%s" % [tanks, cars, planes, hp, ap, str(vs_ia), map_name])
+	print("Gameplay: Match démarré avec Tanks=%d, Cars=%d, Planes=%d, %d PV, %d PA max. Mode=%d, Carte=%s" % [tanks, cars, planes, hp, ap, game_mode, map_name])
 	_spawn_simulated_match(tanks, cars, planes, hp, ap, p2_tanks, p2_cars, p2_planes, budget)
 	
 	# Connecter les boutons du HUD (APRES spawn pour éviter que _on_match_cleaned ne les déconnecte !)
@@ -307,6 +394,10 @@ func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_
 		camera.position = _world_size() * 0.5
 	_apply_camera()
 	queue_redraw()
+	
+	# En mode IA vs IA, on lance l'IA autonome immédiatement après 1s
+	if game_mode == 2:
+		get_tree().create_timer(1.0).timeout.connect(_enemy_ai_action)
 
 func _on_play_again_requested() -> void:
 	print("Gameplay: Relance immédiate demandée !")
@@ -394,9 +485,9 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		elif type == "plane":
 			unit_hp_max = int(hp_max * 0.6)
 			
-		# Joueur 1 (bleu) : avant-dernière rangée, centré horizontalement
+		# Joueur 1 (bleu) : placé au centre vertical, décalé vers le bas
 		var col = (GRID_COLUMNS - player_types.size()) / 2 + i
-		var row = GRID_ROWS - 3
+		var row = GRID_ROWS / 2 + 20
 		unit.global_position = Vector2(OFFSET_X + col * CELL_WIDTH + CELL_WIDTH / 2.0, OFFSET_Y + row * CELL_WIDTH + CELL_WIDTH / 2.0)
 		add_child(unit)
 		simulated_units.append(unit)
@@ -431,9 +522,9 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		elif type == "plane":
 			enemy_hp_max = int(hp_max * 0.6)
 			
-		# Joueur 2 / IA (rouge) : 3e rangée en partant du haut, centré
+		# Joueur 2 / IA (rouge) : placé au centre vertical, décalé vers le haut (40 cases d'écart avec J1)
 		var col = (GRID_COLUMNS - enemy_types.size()) / 2 + i
-		var row = 2
+		var row = GRID_ROWS / 2 - 20
 		enemy.global_position = Vector2(OFFSET_X + col * CELL_WIDTH + CELL_WIDTH / 2.0, OFFSET_Y + row * CELL_WIDTH + CELL_WIDTH / 2.0)
 		add_child(enemy)
 		simulated_units.append(enemy)
@@ -446,51 +537,28 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		_set_gauge_fill_color(ui_manager.hud.create_floating_gauge(enemy), Color("#FF4B57"))
 		
 	_update_red_team_health_bar()
+	_update_blue_team_health_bar()
 
 func _on_move_mode() -> void:
 	# En J1 vs J2, le joueur 2 contrôle le rouge pendant le "tour ennemi".
-	# On ne bloque les modes que lorsque c'est l'IA qui joue.
-	if is_enemy_turn and is_vs_ia:
+	# On ne bloque les modes que lorsque c'est l'IA qui joue ou en mode IA vs IA.
+	if (is_enemy_turn and is_vs_ia) or game_mode == 2:
 		return
 	current_mode = "move"
 	queue_redraw()
 
 func _on_shoot_mode() -> void:
-	if is_enemy_turn and is_vs_ia:
+	if (is_enemy_turn and is_vs_ia) or game_mode == 2:
 		return
 	current_mode = "shoot"
 	queue_redraw()
 
 func _on_end_turn() -> void:
-	if is_enemy_turn:
-		if not is_vs_ia:
-			_restore_player_turn()
+	if game_mode == 2:
 		return
-		
-	# Passer au tour de l'ennemi (J2 / IA)
-	is_enemy_turn = true
-	enemy_ap = max_ap
-	current_mode = "none"
-	active_unit = null # Dé-sélectionner à la fin du tour
-	
-	var hud_node = ui_manager.hud
-	hud_node.set_action_mode("none")
-	_update_hud_ap()
-	
-	# Réinitialiser les AP des unités ennemies vivantes
-	for unit in simulated_units:
-		if not is_instance_valid(unit) or not _get_is_enemy(unit):
-			continue
-		if _get_hp(unit) > 0:
-			unit.set("action_points", enemy_ap)
-			_update_unit_gauge(unit)
-			
-	_spawn_floating_damage_text(_screen_to_world(Vector2(get_viewport().get_visible_rect().size.x * 0.5, 240)), "Tour Ennemi" if is_vs_ia else "Tour Joueur 2")
-	queue_redraw()
-	
-	if is_vs_ia:
-		# Attendre 1.0s pour la fluidité
-		get_tree().create_timer(1.0).timeout.connect(_enemy_ai_action)
+	if is_enemy_turn and is_vs_ia:
+		return # L'IA joue son tour, le joueur ne peut pas forcer la fin
+	_switch_turn()
 
 func _ai_has_los(from_pos: Vector2, to_pos: Vector2) -> bool:
 	var dir = (to_pos - from_pos).normalized()
@@ -507,20 +575,23 @@ func _enemy_ai_action() -> void:
 	if simulated_units.is_empty() or not is_instance_valid(self):
 		return
 		
+	# L'AP de l'équipe active
+	var active_ap = enemy_ap if is_enemy_turn else current_ap
+	
 	# Si l'IA n'a plus d'AP, on passe le tour
-	if enemy_ap < 1:
-		print("Gameplay: IA n'a plus d'AP (%d). Fin du tour." % enemy_ap)
-		_restore_player_turn()
+	if active_ap < 1:
+		print("Gameplay: IA n'a plus d'AP (%d). Fin du tour." % active_ap)
+		_switch_turn()
 		return
 		
-	# Trouver les tanks P1 (cibles) vivants
+	# Trouver les cibles vivantes (l'équipe adverse)
 	var targets: Array[Node2D] = []
 	for unit in simulated_units:
-		if is_instance_valid(unit) and not _get_is_enemy(unit) and _get_hp(unit) > 0:
+		if is_instance_valid(unit) and _get_is_enemy(unit) != is_enemy_turn and _get_hp(unit) > 0:
 			targets.append(unit)
 			
 	if targets.is_empty():
-		_restore_player_turn()
+		_switch_turn()
 		return
 		
 	# Cible prioritaire : celle avec le moins de PV restants (pour l'éliminer)
@@ -532,32 +603,37 @@ func _enemy_ai_action() -> void:
 			min_hp = t_hp
 			target = t
 			
-	# Trouver les tanks ennemis (IA) vivants
-	var enemies: Array[Node2D] = []
+	# Trouver les unités actives de l'IA (équipe courante) vivantes
+	var active_units: Array[Node2D] = []
 	for unit in simulated_units:
-		if is_instance_valid(unit) and _get_is_enemy(unit) and _get_hp(unit) > 0:
-			enemies.append(unit)
+		if is_instance_valid(unit) and _get_is_enemy(unit) == is_enemy_turn and _get_hp(unit) > 0:
+			active_units.append(unit)
 			
-	if enemies.is_empty():
-		_restore_player_turn()
+	if active_units.is_empty():
+		_switch_turn()
 		return
 		
 	# Choisir l'unité IA la plus proche de la cible prioritaire pour économiser les AP
-	var ai_unit = enemies[0]
+	var ai_unit = active_units[0]
 	var min_dist = ai_unit.global_position.distance_to(target.global_position)
-	for e in enemies:
+	for e in active_units:
 		var d = e.global_position.distance_to(target.global_position)
 		if d < min_dist:
 			min_dist = d
 			ai_unit = e
 			
-	print("IA Tactique: Unité=%s (HP=%d) cible %s (HP=%d) avec AP restants=%d" % [ai_unit.name, _get_hp(ai_unit), target.name, _get_hp(target), enemy_ap])
+	# Déplacer doucement la caméra sur l'unité IA qui va jouer
+	if is_instance_valid(ai_unit):
+		var cam_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		cam_tween.tween_property(camera, "position", ai_unit.global_position, 0.4)
+			
+	print("IA Tactique (%s): Unité=%s (HP=%d) cible %s (HP=%d) avec AP restants=%d" % ["Rouge" if is_enemy_turn else "Bleu", ai_unit.name, _get_hp(ai_unit), target.name, _get_hp(target), active_ap])
 	
 	# Évaluer la ligne de visée (Line of Sight / LoS)
 	var has_los = _ai_has_los(ai_unit.global_position, target.global_position)
 			
 	# Décider de l'action
-	var can_shoot = enemy_ap >= 2
+	var can_shoot = active_ap >= 2
 	
 	if can_shoot and has_los:
 		# L'IA a les AP et a une ligne de visée claire : elle tire !
@@ -569,14 +645,17 @@ func _enemy_ai_action() -> void:
 
 func _ai_perform_shoot(ai_unit: Node2D, target: Node2D) -> void:
 	if not is_instance_valid(ai_unit) or not is_instance_valid(target):
-		_restore_player_turn()
+		_switch_turn()
 		return
 		
 	var is_perfect = randf() < 0.20 # 20% de chances de tir parfait (gratuit)
 	var ap_cost = 0 if is_perfect else 2
 	
 	if not is_perfect:
-		enemy_ap -= 2
+		if is_enemy_turn:
+			enemy_ap -= 2
+		else:
+			current_ap -= 2
 		_update_hud_ap()
 		_update_all_unit_gauges()
 		
@@ -596,13 +675,14 @@ func _ai_perform_shoot(ai_unit: Node2D, target: Node2D) -> void:
 		
 	# Création du projectile
 	var damage = _get_shoot_damage(ai_unit)
-	var proj_color = Color("#FFD700") if is_perfect else Color("#FF4B57") # Doré si parfait, rouge sinon
+	var default_color = Color("#FF4B57") if is_enemy_turn else Color("#00D2FF")
+	var proj_color = Color("#FFD700") if is_perfect else default_color # Doré si parfait, couleur équipe sinon
 	var proj = {
 		"position": ai_unit.global_position,
 		"velocity": ai_shoot_dir,
 		"bounces_left": 3,
 		"damage": damage,
-		"is_enemy": true,
+		"is_enemy": is_enemy_turn,
 		"color": proj_color,
 		"is_rainbow": is_perfect
 	}
@@ -683,15 +763,20 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 				best_pos = target_pos
 				
 	# Si un mouvement valide est trouvé, on l'exécute
-	if best_dir != Vector2.ZERO and enemy_ap >= 1:
+	var active_ap = enemy_ap if is_enemy_turn else current_ap
+	if best_dir != Vector2.ZERO and active_ap >= 1:
 		var is_perfect = randf() < 0.20 # 20% de chances de mouvement parfait
 		if not is_perfect:
-			enemy_ap -= 1
+			if is_enemy_turn:
+				enemy_ap -= 1
+			else:
+				current_ap -= 1
 			_update_hud_ap()
 			_update_all_unit_gauges()
 			
 		ai_unit.set("facing_direction", best_dir)
-		_spawn_trail_particles(ai_unit, Color("#FFD700") if is_perfect else Color("#FF4B57"), 0.20)
+		var trail_color = Color("#FF4B57") if is_enemy_turn else Color("#00D2FF")
+		_spawn_trail_particles(ai_unit, Color("#FFD700") if is_perfect else trail_color, 0.20)
 		
 		if is_perfect:
 			_spawn_floating_damage_text(ai_unit.global_position, "Lancement Parfait ! (Gratuit)")
@@ -716,35 +801,64 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 		)
 	else:
 		# Fallback : Si on est coincé ou plus assez d'AP pour bouger mais AP >= 2, on tente un tir désespéré
-		if enemy_ap >= 2:
+		if active_ap >= 2:
 			print("IA Tactique: Bloqué ou éloigné, tir direct de secours.")
 			_ai_perform_shoot(ai_unit, target)
 		else:
 			# Pas d'action possible, fin du tour
 			print("IA Tactique: Pas d'action possible (coincé ou plus d'AP).")
-			_restore_player_turn()
+			_switch_turn()
 
-func _restore_player_turn() -> void:
-	is_enemy_turn = false
-	active_unit = null # Dé-sélectionner
-	turns += 1
-	current_ap = max_ap
-	current_mode = "none"
-	
-	var hud_node = ui_manager.hud
-	hud_node.set_action_mode("none")
-	_update_hud_ap()
-	
-	# Réinitialiser les PA de tous les tanks alliés vivants
-	for unit in simulated_units:
-		if not is_instance_valid(unit) or _get_is_enemy(unit):
-			continue
-		if _get_hp(unit) > 0:
-			unit.set("action_points", current_ap)
-			_update_unit_gauge(unit)
+func _switch_turn() -> void:
+	if is_enemy_turn:
+		# Fin du tour de l'ennemi / IA (P2) -> début du tour du joueur / IA (P1)
+		is_enemy_turn = false
+		current_ap = max_ap
+		current_mode = "none"
+		active_unit = null
+		turns += 1
 		
-	_spawn_floating_damage_text(_screen_to_world(Vector2(get_viewport().get_visible_rect().size.x * 0.5, 240)), "Tour %d" % turns)
-	queue_redraw()
+		# Réinitialiser les PA des unités alliées vivantes
+		for unit in simulated_units:
+			if not is_instance_valid(unit) or _get_is_enemy(unit):
+				continue
+			if _get_hp(unit) > 0:
+				unit.set("action_points", current_ap)
+				_update_unit_gauge(unit)
+				
+		var tour_label = "Tour %d" % turns
+		if game_mode == 2:
+			tour_label = "Tour IA 1 (Bleu) - %d" % turns
+		_spawn_floating_damage_text(_screen_to_world(Vector2(get_viewport().get_visible_rect().size.x * 0.5, 240)), tour_label)
+		_update_hud_ap()
+		queue_redraw()
+		
+		if game_mode == 2:
+			get_tree().create_timer(1.0).timeout.connect(_enemy_ai_action)
+	else:
+		# Fin du tour du joueur / IA (P1) -> début du tour de l'ennemi / IA (P2)
+		is_enemy_turn = true
+		enemy_ap = max_ap
+		current_mode = "none"
+		active_unit = null
+		
+		# Réinitialiser les PA des unités ennemies vivantes
+		for unit in simulated_units:
+			if not is_instance_valid(unit) or not _get_is_enemy(unit):
+				continue
+			if _get_hp(unit) > 0:
+				unit.set("action_points", enemy_ap)
+				_update_unit_gauge(unit)
+				
+		var tour_label = "Tour Ennemi" if is_vs_ia else "Tour Joueur 2"
+		if game_mode == 2:
+			tour_label = "Tour IA 2 (Rouge)"
+		_spawn_floating_damage_text(_screen_to_world(Vector2(get_viewport().get_visible_rect().size.x * 0.5, 240)), tour_label)
+		_update_hud_ap()
+		queue_redraw()
+		
+		if is_vs_ia or game_mode == 2:
+			get_tree().create_timer(1.0).timeout.connect(_enemy_ai_action)
 
 # Distance / milieu entre les deux doigts actifs (gestes caméra)
 func _touches_distance() -> float:
@@ -813,7 +927,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	# ---- Logique d'unité (1 doigt / clic gauche) ----
-	if simulated_units.is_empty() or (is_enemy_turn and is_vs_ia):
+	if simulated_units.is_empty() or (is_enemy_turn and is_vs_ia) or game_mode == 2:
 		return
 
 	if event is InputEventMouseButton or event is InputEventScreenTouch:
@@ -1103,6 +1217,16 @@ func _update_red_team_health_bar() -> void:
 	if is_instance_valid(ui_manager) and is_instance_valid(ui_manager.hud):
 		ui_manager.hud.update_red_team_health(total_hp, total_max)
 
+func _update_blue_team_health_bar() -> void:
+	var total_hp = 0
+	var total_max = 0
+	for unit in simulated_units:
+		if is_instance_valid(unit) and not _get_is_enemy(unit):
+			total_hp += _get_hp(unit)
+			total_max += _get_max_hp(unit)
+	if is_instance_valid(ui_manager) and is_instance_valid(ui_manager.hud):
+		ui_manager.hud.update_blue_team_health(total_hp, total_max)
+
 func _spawn_floating_damage_text(pos: Vector2, msg: String) -> void:
 	var label = Label.new()
 	label.text = msg
@@ -1159,13 +1283,26 @@ func _draw() -> void:
 		var start_x = OFFSET_X + (i * CELL_WIDTH)
 		draw_line(Vector2(start_x, OFFSET_Y), Vector2(start_x, OFFSET_Y + (GRID_ROWS * CELL_WIDTH)), grid_color, line_width)
 		
-	# Dessiner les obstacles de la carte courante
+	# Dessiner les obstacles de la carte courante visibles par la caméra
 	var obstacle_color = Color("#18181A", 0.9)
-	for cell in obstacle_cells:
-		var cell_rect = Rect2(OFFSET_X + cell.x * CELL_WIDTH, OFFSET_Y + cell.y * CELL_WIDTH, CELL_WIDTH, CELL_WIDTH)
-		draw_rect(cell_rect, obstacle_color)
-		var inner_rect = Rect2(cell_rect.position + Vector2(2, 2), cell_rect.size - Vector2(4, 4))
-		draw_rect(inner_rect, Color("#00D2FF", 0.15))
+	var view_size: Vector2 = get_viewport().get_visible_rect().size / cam_zoom
+	var view_center: Vector2 = camera.position
+	var min_world_pos: Vector2 = view_center - view_size * 0.5
+	var max_world_pos: Vector2 = view_center + view_size * 0.5
+	
+	var min_cx: int = clamp(floori((min_world_pos.x - OFFSET_X) / CELL_WIDTH), 0, GRID_COLUMNS - 1)
+	var max_cx: int = clamp(floori((max_world_pos.x - OFFSET_X) / CELL_WIDTH), 0, GRID_COLUMNS - 1)
+	var min_cy: int = clamp(floori((min_world_pos.y - OFFSET_Y) / CELL_WIDTH), 0, GRID_ROWS - 1)
+	var max_cy: int = clamp(floori((max_world_pos.y - OFFSET_Y) / CELL_WIDTH), 0, GRID_ROWS - 1)
+	
+	for y in range(min_cy, max_cy + 1):
+		for x in range(min_cx, max_cx + 1):
+			var cell = Vector2i(x, y)
+			if obstacle_grid.has(cell):
+				var cell_rect = Rect2(OFFSET_X + cell.x * CELL_WIDTH, OFFSET_Y + cell.y * CELL_WIDTH, CELL_WIDTH, CELL_WIDTH)
+				draw_rect(cell_rect, obstacle_color)
+				var inner_rect = Rect2(cell_rect.position + Vector2(2, 2), cell_rect.size - Vector2(4, 4))
+				draw_rect(inner_rect, Color("#00D2FF", 0.15))
 
 	# Dessiner les projectiles de tir actifs
 	for proj in active_projectiles:
@@ -1313,7 +1450,7 @@ func _draw() -> void:
 				var current_dir = drag_dir
 				var bounces = 3
 				var hit_unit = null
-				var max_range = 600.0
+				var max_range = MAX_SHOOT_RANGE
 				var distance_traveled = 0.0
 				
 				var traj_points = [start_pos]
@@ -1334,21 +1471,15 @@ func _draw() -> void:
 						continue
 						
 					# Collision avec les obstacles
-					var hit_obs = false
-					for cell in obstacle_cells:
-						var x_min = OFFSET_X + cell.x * CELL_WIDTH
-						var x_max = OFFSET_X + (cell.x + 1) * CELL_WIDTH
-						var y_min = OFFSET_Y + cell.y * CELL_WIDTH
-						var y_max = OFFSET_Y + (cell.y + 1) * CELL_WIDTH
-						if next_pos.x >= x_min and next_pos.x <= x_max and next_pos.y >= y_min and next_pos.y <= y_max:
-							var normal = _get_obstacle_collision_normal(current_pos, cell)
-							current_dir = current_dir.bounce(normal)
-							traj_points.append(current_pos)
-							bounces -= 1
-							current_pos = current_pos + current_dir * 4.0
-							hit_obs = true
-							break
-					if hit_obs:
+					var cx: int = floori((next_pos.x - OFFSET_X) / CELL_WIDTH)
+					var cy: int = floori((next_pos.y - OFFSET_Y) / CELL_WIDTH)
+					var cell = Vector2i(cx, cy)
+					if obstacle_grid.has(cell):
+						var normal = _get_obstacle_collision_normal(current_pos, cell)
+						current_dir = current_dir.bounce(normal)
+						traj_points.append(current_pos)
+						bounces -= 1
+						current_pos = current_pos + current_dir * 4.0
 						continue
 						
 					# Collision avec un véhicule
@@ -1742,13 +1873,20 @@ func _draw_vector_plane(unit: Node2D, color: Color, is_active: bool) -> void:
 # --- Fonctions d'accès sécurisées (anti-crash de typage dynamic GDScript) ---
 
 func _is_position_colliding_with_obstacles(check_pos: Vector2, obs_margin: float = 15.0) -> bool:
-	for cell in obstacle_cells:
-		var x_min = OFFSET_X + cell.x * CELL_WIDTH
-		var x_max = OFFSET_X + (cell.x + 1) * CELL_WIDTH
-		var y_min = OFFSET_Y + cell.y * CELL_WIDTH
-		var y_max = OFFSET_Y + (cell.y + 1) * CELL_WIDTH
-		if check_pos.x >= (x_min - obs_margin) and check_pos.x <= (x_max + obs_margin) and check_pos.y >= (y_min - obs_margin) and check_pos.y <= (y_max + obs_margin):
-			return true
+	var cx: int = floori((check_pos.x - OFFSET_X) / CELL_WIDTH)
+	var cy: int = floori((check_pos.y - OFFSET_Y) / CELL_WIDTH)
+	
+	# Check 3x3 neighborhood around the query position in O(1)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var cell = Vector2i(cx + dx, cy + dy)
+			if obstacle_grid.has(cell):
+				var x_min = OFFSET_X + cell.x * CELL_WIDTH
+				var x_max = OFFSET_X + (cell.x + 1) * CELL_WIDTH
+				var y_min = OFFSET_Y + cell.y * CELL_WIDTH
+				var y_max = OFFSET_Y + (cell.y + 1) * CELL_WIDTH
+				if check_pos.x >= (x_min - obs_margin) and check_pos.x <= (x_max + obs_margin) and check_pos.y >= (y_min - obs_margin) and check_pos.y <= (y_max + obs_margin):
+					return true
 	return false
 
 func _get_obstacle_collision_normal(prev_pos: Vector2, cell: Vector2i) -> Vector2:

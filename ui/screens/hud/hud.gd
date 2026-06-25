@@ -24,6 +24,8 @@ var style_inactive: StyleBoxFlat
 
 var red_team_health_bar: ProgressBar
 var red_team_health_label: Label
+var blue_team_health_bar: ProgressBar
+var blue_team_health_label: Label
 
 func _ready() -> void:
 	super._ready()
@@ -37,8 +39,8 @@ func _ready() -> void:
 	# Initialiser les StyleBoxes personnalisés à partir de ceux du Figma
 	_setup_styles()
 	
-	# Initialiser la barre de vie globale de l'équipe rouge tout en bas
-	setup_red_team_health_bar()
+	# Initialiser les barres de vie globales
+	setup_health_bars()
 	
 	# Par défaut, mode neutre
 	set_action_mode("none")
@@ -146,54 +148,120 @@ func _on_shoot_pressed() -> void:
 	set_action_mode("shoot")
 	shoot_mode_pressed.emit()
 
-func setup_red_team_health_bar() -> void:
+func setup_health_bars() -> void:
+	# 1. Barre de vie de l'Équipe Bleue (tout en bas, dans le BottomPanel)
 	var vbox = $BottomPanel/Margin/VBox
-	if not vbox: return
-	
-	# Créer un container HBox
-	var hbox = HBoxContainer.new()
-	hbox.name = "RedTeamHealthHBox"
-	hbox.add_theme_constant_override("separation", 8)
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	
-	red_team_health_label = Label.new()
-	red_team_health_label.text = "Équipe Rouge : 100/100 HP"
-	red_team_health_label.add_theme_color_override("font_color", Color("#FF4B57"))
-	red_team_health_label.add_theme_font_size_override("font_size", 12)
-	
-	red_team_health_bar = ProgressBar.new()
-	red_team_health_bar.custom_minimum_size = Vector2(0, 12)
-	red_team_health_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	red_team_health_bar.show_percentage = true
-	red_team_health_bar.add_theme_font_size_override("font_size", 10)
-	
-	# StyleBox pour le fond de la barre de vie
-	var bg_style = StyleBoxFlat.new()
-	bg_style.bg_color = Color("#17171A")
-	bg_style.corner_radius_top_left = 6
-	bg_style.corner_radius_top_right = 6
-	bg_style.corner_radius_bottom_left = 6
-	bg_style.corner_radius_bottom_right = 6
-	red_team_health_bar.add_theme_stylebox_override("background", bg_style)
-	
-	# StyleBox pour le remplissage de la barre de vie
-	var fill_style = StyleBoxFlat.new()
-	fill_style.bg_color = Color("#FF4B57") # Rouge
-	fill_style.corner_radius_top_left = 6
-	fill_style.corner_radius_top_right = 6
-	fill_style.corner_radius_bottom_left = 6
-	fill_style.corner_radius_bottom_right = 6
-	red_team_health_bar.add_theme_stylebox_override("fill", fill_style)
-	
-	hbox.add_child(red_team_health_label)
-	hbox.add_child(red_team_health_bar)
-	
-	# L'ajouter en premier dans le VBox
-	vbox.add_child(hbox)
-	vbox.move_child(hbox, 0)
+	if vbox:
+		var blue_hbox = HBoxContainer.new()
+		blue_hbox.name = "BlueTeamHealthHBox"
+		blue_hbox.add_theme_constant_override("separation", 8)
+		blue_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		
+		blue_team_health_label = Label.new()
+		blue_team_health_label.text = "Équipe Bleue : 100/100 HP"
+		blue_team_health_label.add_theme_color_override("font_color", Color("#00D2FF")) # Bleu/Cyan
+		blue_team_health_label.add_theme_font_size_override("font_size", 12)
+		
+		blue_team_health_bar = ProgressBar.new()
+		blue_team_health_bar.custom_minimum_size = Vector2(0, 12)
+		blue_team_health_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		blue_team_health_bar.show_percentage = true
+		blue_team_health_bar.add_theme_font_size_override("font_size", 10)
+		
+		var bg_style_blue = StyleBoxFlat.new()
+		bg_style_blue.bg_color = Color("#17171A")
+		bg_style_blue.corner_radius_top_left = 6
+		bg_style_blue.corner_radius_top_right = 6
+		bg_style_blue.corner_radius_bottom_left = 6
+		bg_style_blue.corner_radius_bottom_right = 6
+		blue_team_health_bar.add_theme_stylebox_override("background", bg_style_blue)
+		
+		var fill_style_blue = StyleBoxFlat.new()
+		fill_style_blue.bg_color = Color("#00D2FF") # Bleu/Cyan
+		fill_style_blue.corner_radius_top_left = 6
+		fill_style_blue.corner_radius_top_right = 6
+		fill_style_blue.corner_radius_bottom_left = 6
+		fill_style_blue.corner_radius_bottom_right = 6
+		blue_team_health_bar.add_theme_stylebox_override("fill", fill_style_blue)
+		
+		blue_hbox.add_child(blue_team_health_label)
+		blue_hbox.add_child(blue_team_health_bar)
+		
+		vbox.add_child(blue_hbox)
+		vbox.move_child(blue_hbox, 0)
+		
+	# 2. Barre de vie de l'Équipe Rouge (en haut, dans le TopBar)
+	var topbar = $TopBar
+	if topbar:
+		# Agrandir le TopBar pour faire de la place
+		topbar.custom_minimum_size.y = 80
+		
+		# Ajuster la position des contrôles existants dans le TopBar vers le haut
+		var player_container = topbar.get_node_or_null("PlayerContainer")
+		if player_container:
+			player_container.offset_top = -30
+			player_container.offset_bottom = 2
+		var ap_label_node = topbar.get_node_or_null("APLabel")
+		if ap_label_node:
+			ap_label_node.offset_top = -30
+			ap_label_node.offset_bottom = 2
+		var pause_btn = topbar.get_node_or_null("PauseButton")
+		if pause_btn:
+			pause_btn.offset_top = -34
+			pause_btn.offset_bottom = 14
+			
+		var red_hbox = HBoxContainer.new()
+		red_hbox.name = "RedTeamHealthHBox"
+		red_hbox.add_theme_constant_override("separation", 8)
+		red_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		
+		# Ancrer en bas du TopBar
+		red_hbox.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		red_hbox.offset_left = 16
+		red_hbox.offset_right = -16
+		red_hbox.offset_top = -28
+		red_hbox.offset_bottom = -8
+		
+		red_team_health_label = Label.new()
+		red_team_health_label.text = "Équipe Rouge : 100/100 HP"
+		red_team_health_label.add_theme_color_override("font_color", Color("#FF4B57")) # Rouge
+		red_team_health_label.add_theme_font_size_override("font_size", 12)
+		
+		red_team_health_bar = ProgressBar.new()
+		red_team_health_bar.custom_minimum_size = Vector2(0, 12)
+		red_team_health_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		red_team_health_bar.show_percentage = true
+		red_team_health_bar.add_theme_font_size_override("font_size", 10)
+		
+		var bg_style_red = StyleBoxFlat.new()
+		bg_style_red.bg_color = Color("#17171A")
+		bg_style_red.corner_radius_top_left = 6
+		bg_style_red.corner_radius_top_right = 6
+		bg_style_red.corner_radius_bottom_left = 6
+		bg_style_red.corner_radius_bottom_right = 6
+		red_team_health_bar.add_theme_stylebox_override("background", bg_style_red)
+		
+		var fill_style_red = StyleBoxFlat.new()
+		fill_style_red.bg_color = Color("#FF4B57") # Rouge
+		fill_style_red.corner_radius_top_left = 6
+		fill_style_red.corner_radius_top_right = 6
+		fill_style_red.corner_radius_bottom_left = 6
+		fill_style_red.corner_radius_bottom_right = 6
+		red_team_health_bar.add_theme_stylebox_override("fill", fill_style_red)
+		
+		red_hbox.add_child(red_team_health_label)
+		red_hbox.add_child(red_team_health_bar)
+		
+		topbar.add_child(red_hbox)
 
 func update_red_team_health(current: int, max_val: int) -> void:
 	if is_instance_valid(red_team_health_bar) and is_instance_valid(red_team_health_label):
 		red_team_health_bar.max_value = max_val
 		red_team_health_bar.value = current
 		red_team_health_label.text = "Équipe Rouge : %d/%d HP" % [current, max_val]
+
+func update_blue_team_health(current: int, max_val: int) -> void:
+	if is_instance_valid(blue_team_health_bar) and is_instance_valid(blue_team_health_label):
+		blue_team_health_bar.max_value = max_val
+		blue_team_health_bar.value = current
+		blue_team_health_label.text = "Équipe Bleue : %d/%d HP" % [current, max_val]

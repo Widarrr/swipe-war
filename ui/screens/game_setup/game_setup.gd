@@ -2,7 +2,7 @@
 extends UIScreen
 
 signal back_pressed
-signal start_match_pressed(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, vs_ia: bool, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int)
+signal start_match_pressed(tanks: int, cars: int, planes: int, action_points: int, hit_points: int, game_mode: int, map_name: String, p2_tanks: int, p2_cars: int, p2_planes: int, budget: int)
 
 # Valeurs de configuration par défaut et limites pour la boutique
 const BUDGET_MAX = 150 # budget par défaut
@@ -35,7 +35,7 @@ const HP_STEP = 5
 
 var action_points: int = 5
 var hit_points: int = 50
-var vs_ia: bool = true
+var game_mode: int = 0
 var selected_map_name: String = "classic"
 var current_step: int = 1
 
@@ -53,6 +53,12 @@ var plane_val_label: Label
 var car_val_label: Label
 var budget_label: Label
 var shop_title_label: Label
+var tank_minus_btn: Button
+var tank_plus_btn: Button
+var plane_minus_btn: Button
+var plane_plus_btn: Button
+var car_minus_btn: Button
+var car_plus_btn: Button
 # Carte "Points d'équipe" (budget) créée dynamiquement sur la page Règles
 var budget_card: PanelContainer
 var budget_value_label: Label
@@ -61,6 +67,7 @@ var budget_progress: ProgressBar
 # Références des cartes et étapes
 var mode_card_ia: Button
 var mode_card_pvp: Button
+var mode_card_ia_vs_ia: Button
 var map_card_classic: Button
 var map_card_cross: Button
 var map_card_pillars: Button
@@ -213,7 +220,7 @@ func _setup_game_mode_card() -> void:
 	var cards_container = $VBoxContainer/CardsContainer
 	if not cards_container: return
 	
-	# Créer un conteneur vertical pour les deux cartes de mode
+	# Créer un conteneur vertical pour les trois cartes de mode
 	var mode_container = VBoxContainer.new()
 	mode_container.name = "ModeCard"
 	mode_container.add_theme_constant_override("separation", 16)
@@ -262,13 +269,30 @@ func _setup_game_mode_card() -> void:
 	
 	_fill_mode_card(mode_card_pvp, "👥", "JOUEUR VS JOUEUR", "Duel local (Pass & Play).\nJouez à deux sur le même écran.", Color("#FF4B57"))
 	
+	# Carte IA VS IA
+	mode_card_ia_vs_ia = Button.new()
+	mode_card_ia_vs_ia.custom_minimum_size = Vector2(340, 110)
+	mode_card_ia_vs_ia.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	mode_card_ia_vs_ia.flat = false
+	mode_card_ia_vs_ia.add_theme_stylebox_override("normal", style_normal)
+	mode_card_ia_vs_ia.add_theme_stylebox_override("hover", style_normal)
+	mode_card_ia_vs_ia.add_theme_stylebox_override("pressed", style_normal)
+	mode_card_ia_vs_ia.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	mode_container.add_child(mode_card_ia_vs_ia)
+	
+	_fill_mode_card(mode_card_ia_vs_ia, "💻", "IA VS IA", "Regardez deux intelligences artificielles\ns'affronter de manière autonome.", Color("#FFB800"))
+	
 	# Connecter les clics
 	mode_card_ia.pressed.connect(func():
-		vs_ia = true
+		game_mode = 0
 		_update_mode_cards_selection()
 	)
 	mode_card_pvp.pressed.connect(func():
-		vs_ia = false
+		game_mode = 1
+		_update_mode_cards_selection()
+	)
+	mode_card_ia_vs_ia.pressed.connect(func():
+		game_mode = 2
 		_update_mode_cards_selection()
 	)
 	
@@ -340,15 +364,17 @@ func _fill_mode_card(card: Button, icon: String, title_text: String, desc_text: 
 	vbox.add_child(desc)
 
 func _update_mode_cards_selection() -> void:
-	if not is_instance_valid(mode_card_ia) or not is_instance_valid(mode_card_pvp):
+	if not is_instance_valid(mode_card_ia) or not is_instance_valid(mode_card_pvp) or not is_instance_valid(mode_card_ia_vs_ia):
 		return
 		
 	var accent_ia = Color("#00D2FF") # Cyan
 	var accent_pvp = Color("#FF4B57") # Coral / Rouge
+	var accent_ia_vs_ia = Color("#FFB800") # Yellow / Gold
 	
 	# Pivot offset pour la mise à l'échelle (la moitié de custom_minimum_size)
 	mode_card_ia.pivot_offset = Vector2(170, 55)
 	mode_card_pvp.pivot_offset = Vector2(170, 55)
+	mode_card_ia_vs_ia.pivot_offset = Vector2(170, 55)
 	
 	var apply_style = func(card: Button, is_selected: bool, accent_color: Color):
 		var style = StyleBoxFlat.new()
@@ -383,8 +409,9 @@ func _update_mode_cards_selection() -> void:
 		if title_node is Label:
 			title_node.add_theme_color_override("font_color", accent_color if is_selected else Color.WHITE)
 			
-	apply_style.call(mode_card_ia, vs_ia, accent_ia)
-	apply_style.call(mode_card_pvp, not vs_ia, accent_pvp)
+	apply_style.call(mode_card_ia, game_mode == 0, accent_ia)
+	apply_style.call(mode_card_pvp, game_mode == 1, accent_pvp)
+	apply_style.call(mode_card_ia_vs_ia, game_mode == 2, accent_ia_vs_ia)
 
 func _setup_map_card() -> void:
 	var cards_container = $VBoxContainer/CardsContainer
@@ -710,16 +737,22 @@ func _setup_team_shop() -> void:
 	# Ligne Tank
 	var tank_hbox = _create_shop_row("🛡️ Tank (50 pts)\nLourd - Résistant - Masse 1.8x", num_tanks, func(val: int): _set_vehicle_count("tank", val), normal_style, pressed_style)
 	tank_val_label = tank_hbox.get_node("Value")
+	tank_minus_btn = tank_hbox.get_node("Minus")
+	tank_plus_btn = tank_hbox.get_node("Plus")
 	shop_vbox.add_child(tank_hbox)
 
 	# Ligne Avion
 	var plane_hbox = _create_shop_row("✈️ Avion (40 pts)\nLéger - Rapide - Masse 0.6x", num_planes, func(val: int): _set_vehicle_count("plane", val), normal_style, pressed_style)
 	plane_val_label = plane_hbox.get_node("Value")
+	plane_minus_btn = plane_hbox.get_node("Minus")
+	plane_plus_btn = plane_hbox.get_node("Plus")
 	shop_vbox.add_child(plane_hbox)
 
 	# Ligne Voiture
 	var car_hbox = _create_shop_row("🚗 Voiture (30 pts)\nMoyen - Équilibré - Masse 1.0x", num_cars, func(val: int): _set_vehicle_count("car", val), normal_style, pressed_style)
 	car_val_label = car_hbox.get_node("Value")
+	car_minus_btn = car_hbox.get_node("Minus")
+	car_plus_btn = car_hbox.get_node("Plus")
 	shop_vbox.add_child(car_hbox)
 	
 	# Label du budget restant
@@ -750,6 +783,7 @@ func _create_shop_row(label_text: String, initial_val: int, on_change: Callable,
 	hbox.add_child(name_label)
 	
 	var minus_btn = Button.new()
+	minus_btn.name = "Minus"
 	minus_btn.text = "-"
 	minus_btn.custom_minimum_size = Vector2(32, 32)
 	if normal_style: minus_btn.add_theme_stylebox_override("normal", normal_style)
@@ -764,6 +798,7 @@ func _create_shop_row(label_text: String, initial_val: int, on_change: Callable,
 	hbox.add_child(value_label)
 	
 	var plus_btn = Button.new()
+	plus_btn.name = "Plus"
 	plus_btn.text = "+"
 	plus_btn.custom_minimum_size = Vector2(32, 32)
 	if normal_style: plus_btn.add_theme_stylebox_override("normal", normal_style)
@@ -823,6 +858,28 @@ func _update_shop_ui() -> void:
 		plane_val_label.text = str(n_planes)
 	if car_val_label:
 		car_val_label.text = str(n_cars)
+		
+	# Désactivation dynamique des boutons pour ne pas dépasser le budget, le max 5, ou descendre sous 1 véhicule au total
+	if tank_minus_btn:
+		tank_minus_btn.disabled = (n_tanks <= 0) or (total_vehicles == 1 and n_tanks == 1)
+		tank_minus_btn.modulate = Color(1, 1, 1, 0.4) if tank_minus_btn.disabled else Color.WHITE
+	if tank_plus_btn:
+		tank_plus_btn.disabled = (total_vehicles >= 5) or (remaining < COST_TANK)
+		tank_plus_btn.modulate = Color(1, 1, 1, 0.4) if tank_plus_btn.disabled else Color.WHITE
+		
+	if plane_minus_btn:
+		plane_minus_btn.disabled = (n_planes <= 0) or (total_vehicles == 1 and n_planes == 1)
+		plane_minus_btn.modulate = Color(1, 1, 1, 0.4) if plane_minus_btn.disabled else Color.WHITE
+	if plane_plus_btn:
+		plane_plus_btn.disabled = (total_vehicles >= 5) or (remaining < COST_PLANE)
+		plane_plus_btn.modulate = Color(1, 1, 1, 0.4) if plane_plus_btn.disabled else Color.WHITE
+		
+	if car_minus_btn:
+		car_minus_btn.disabled = (n_cars <= 0) or (total_vehicles == 1 and n_cars == 1)
+		car_minus_btn.modulate = Color(1, 1, 1, 0.4) if car_minus_btn.disabled else Color.WHITE
+	if car_plus_btn:
+		car_plus_btn.disabled = (total_vehicles >= 5) or (remaining < COST_CAR)
+		car_plus_btn.modulate = Color(1, 1, 1, 0.4) if car_plus_btn.disabled else Color.WHITE
 		
 	if budget_label:
 		if remaining < 0:
@@ -948,11 +1005,11 @@ func _update_step_view() -> void:
 		if budget_card: budget_card.hide()
 
 		# En J1 vs J2 : étape équipe en deux temps (J1 puis J2).
-		if not vs_ia and editing_player == 1:
+		if game_mode == 1 and editing_player == 1:
 			if title_label: title_label.text = "4. Équipe Joueur 1"
 			if start_match_btn:
 				start_match_btn.text = "Suivant >"
-		elif not vs_ia and editing_player == 2:
+		elif game_mode == 1 and editing_player == 2:
 			if title_label: title_label.text = "4. Équipe Joueur 2"
 			if start_match_btn:
 				start_match_btn.text = "Lancer le Match"
@@ -1002,7 +1059,7 @@ func _on_next_pressed() -> void:
 		_animate_cards_transition()
 	else:
 		# Étape équipe. En J1 vs J2, on enchaîne J1 -> J2 avant de lancer.
-		if not vs_ia and editing_player == 1:
+		if game_mode == 1 and editing_player == 1:
 			editing_player = 2
 			_refresh_shop_for_player()
 			_update_step_view()
@@ -1022,10 +1079,10 @@ func _animate_cards_transition() -> void:
 func _on_start_match_pressed() -> void:
 	# En J1 vs J2, on transmet l'équipe configurée par le joueur 2.
 	# En mode IA, on envoie -1 (sentinelle) pour que l'équipe rouge soit générée.
-	var p2_t := p2_num_tanks if not vs_ia else -1
-	var p2_c := p2_num_cars if not vs_ia else -1
-	var p2_p := p2_num_planes if not vs_ia else -1
-	start_match_pressed.emit(num_tanks, num_cars, num_planes, action_points, hit_points, vs_ia, selected_map_name, p2_t, p2_c, p2_p, team_budget)
+	var p2_t := p2_num_tanks if game_mode == 1 else -1
+	var p2_c := p2_num_cars if game_mode == 1 else -1
+	var p2_p := p2_num_planes if game_mode == 1 else -1
+	start_match_pressed.emit(num_tanks, num_cars, num_planes, action_points, hit_points, game_mode, selected_map_name, p2_t, p2_c, p2_p, team_budget)
 
 # Rétrocompatibilité et feedback visuel de transition sur le texte quand la valeur change
 func _play_feedback_animation(target_label: Label) -> void:

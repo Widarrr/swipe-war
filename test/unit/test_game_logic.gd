@@ -19,8 +19,8 @@ func after_each() -> void:
 # --- Grille & cartes -------------------------------------------------------
 
 func test_grid_dimensions() -> void:
-	assert_eq(_gp.GRID_COLUMNS, 12, "La grille fait 12 colonnes")
-	assert_eq(_gp.GRID_ROWS, 24, "La grille fait 24 lignes")
+	assert_eq(_gp.GRID_COLUMNS, 64, "La grille fait 64 colonnes")
+	assert_eq(_gp.GRID_ROWS, 64, "La grille fait 64 lignes")
 
 func test_map_presets_exist() -> void:
 	for name in ["classic", "cross", "pillars", "corridor"]:
@@ -72,3 +72,15 @@ func test_shop_costs_are_coherent() -> void:
 	assert_true(s.HP_MIN < s.HP_MAX, "PV: min < max")
 	assert_true(s.AP_MIN < s.AP_MAX, "PA: min < max")
 	s.free()
+
+# --- Caméra, Portée et Spawns ----------------------------------------------
+
+func test_camera_zoom_min() -> void:
+	assert_eq(_gp.CAM_ZOOM_MIN, 0.08, "Le dézoom minimum doit être de 0.08")
+
+func test_spawn_rows_clear_of_obstacles() -> void:
+	# Les équipes J1 et J2 spawnent respectivement aux lignes 52 et 12 (centre +/- 20)
+	for preset_name in _gp.MAP_PRESETS.keys():
+		for cell in _gp.MAP_PRESETS[preset_name]:
+			assert_ne(cell.y, 52, "Pas d'obstacle sur la ligne de spawn J1 (ligne 52) - preset %s" % preset_name)
+			assert_ne(cell.y, 12, "Pas d'obstacle sur la ligne de spawn J2 (ligne 12) - preset %s" % preset_name)

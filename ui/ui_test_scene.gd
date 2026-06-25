@@ -26,22 +26,23 @@ var is_perfect_zone: bool = false
 var perfect_timer: float = 0.0
 var oscillation_time: float = 0.0
 
-# Configuration de la Grille Agrandie 6x10
-const GRID_COLUMNS = 6
-const GRID_ROWS = 10
+# Configuration de la Grande Grille 12x24 (monde en coordonnées (0,0)-(768,1536))
+const GRID_COLUMNS = 12
+const GRID_ROWS = 24
 const CELL_WIDTH = 64
-const OFFSET_X = 24
-const OFFSET_Y = 100
+const OFFSET_X = 0
+const OFFSET_Y = 0
 
+# Obstacles centrés sur la grande carte (centre ~ colonne 6, ligne 12)
 const MAP_PRESETS = {
-	"classic": [Vector2i(2, 4), Vector2i(3, 4), Vector2i(2, 5), Vector2i(3, 5)],
-	"cross": [Vector2i(2, 4), Vector2i(3, 4), Vector2i(2, 5), Vector2i(3, 5), Vector2i(2, 3), Vector2i(3, 3), Vector2i(2, 6), Vector2i(3, 6), Vector2i(1, 4), Vector2i(1, 5), Vector2i(4, 4), Vector2i(4, 5)],
-	"pillars": [Vector2i(1, 3), Vector2i(4, 3), Vector2i(1, 6), Vector2i(4, 6)],
-	"corridor": [Vector2i(0, 4), Vector2i(1, 4), Vector2i(0, 5), Vector2i(1, 5), Vector2i(4, 4), Vector2i(5, 4), Vector2i(4, 5), Vector2i(5, 5)]
+	"classic": [Vector2i(5, 11), Vector2i(6, 11), Vector2i(5, 12), Vector2i(6, 12)],
+	"cross": [Vector2i(5, 11), Vector2i(6, 11), Vector2i(5, 12), Vector2i(6, 12), Vector2i(5, 9), Vector2i(6, 9), Vector2i(5, 14), Vector2i(6, 14), Vector2i(3, 11), Vector2i(3, 12), Vector2i(8, 11), Vector2i(8, 12)],
+	"pillars": [Vector2i(2, 6), Vector2i(9, 6), Vector2i(2, 17), Vector2i(9, 17), Vector2i(5, 11), Vector2i(6, 12)],
+	"corridor": [Vector2i(0, 11), Vector2i(1, 11), Vector2i(2, 11), Vector2i(0, 12), Vector2i(1, 12), Vector2i(2, 12), Vector2i(9, 11), Vector2i(10, 11), Vector2i(11, 11), Vector2i(9, 12), Vector2i(10, 12), Vector2i(11, 12)]
 }
 var current_map_name: String = "classic"
 var obstacle_cells: Array[Vector2i] = [
-	Vector2i(2, 4), Vector2i(3, 4), Vector2i(2, 5), Vector2i(3, 5)
+	Vector2i(5, 11), Vector2i(6, 11), Vector2i(5, 12), Vector2i(6, 12)
 ]
 
 # Gestion des projectiles physiques
@@ -53,13 +54,64 @@ var laser_end: Vector2 = Vector2.ZERO
 var laser_color: Color = Color("#00D2FF")
 var show_laser: bool = false
 
+# --- Caméra (zoom / déplacement sur la grande carte) ---
+var camera: Camera2D
+const CAM_ZOOM_MIN := 0.45   # dézoomé : vue large
+const CAM_ZOOM_MAX := 2.0    # zoomé : gros plan
+var cam_zoom: float = 0.7
+# Suivi des doigts pour les gestes (index -> position écran)
+var _touches: Dictionary = {}
+var _pinch_start_dist: float = 0.0
+var _pinch_start_zoom: float = 0.7
+var _pan_last_mid: Vector2 = Vector2.ZERO
+var _is_panning: bool = false
+
+# Dimensions du monde (carte) en pixels
+func _world_size() -> Vector2:
+	return Vector2(GRID_COLUMNS * CELL_WIDTH, GRID_ROWS * CELL_WIDTH)
+
 func _ready() -> void:
+	# Fond sombre du viewport (visible hors carte quand on dézoome)
+	RenderingServer.set_default_clear_color(Color("#08080A"))
+
+	# Caméra 2D pour naviguer sur la grande carte (zoom + déplacement)
+	camera = Camera2D.new()
+	camera.name = "GameCamera"
+	add_child(camera)
+	camera.make_current()
+	_apply_camera()
+
 	# Connecter les signaux du UIManager pour simuler la boucle de jeu
 	ui_manager.match_started.connect(_on_match_started)
 	ui_manager.play_again_requested.connect(_on_play_again_requested)
 	ui_manager.match_paused.connect(_on_match_cleaned)
-	
+
 	print("Scène de démonstration UI prête. Lancement du flux complet !")
+
+# Applique le zoom et borne la position de la caméra à l'intérieur de la carte.
+func _apply_camera() -> void:
+	if not is_instance_valid(camera):
+		return
+	cam_zoom = clampf(cam_zoom, CAM_ZOOM_MIN, CAM_ZOOM_MAX)
+	camera.zoom = Vector2(cam_zoom, cam_zoom)
+	# Demi-taille visible en coordonnées monde
+	var view := get_viewport().get_visible_rect().size
+	var half := (view * 0.5) / cam_zoom
+	var world := _world_size()
+	var min_x: float = half.x
+	var max_x: float = world.x - half.x
+	var min_y: float = half.y
+	var max_y: float = world.y - half.y
+	# Si la carte est plus petite que la vue sur un axe, on centre.
+	var cx: float = camera.position.x
+	var cy: float = camera.position.y
+	cx = (world.x * 0.5) if min_x > max_x else clampf(cx, min_x, max_x)
+	cy = (world.y * 0.5) if min_y > max_y else clampf(cy, min_y, max_y)
+	camera.position = Vector2(cx, cy)
+
+# Convertit une position écran en position monde (tenant compte de la caméra).
+func _screen_to_world(screen_pos: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * screen_pos
 
 func _get_oscillation_pct() -> float:
 	var speed = 1.6
@@ -182,7 +234,7 @@ func _process(delta: float) -> void:
 			proj.position = next_pos
 			
 		# Sécurité de sortie d'écran
-		if proj.position.x < 0 or proj.position.x > 432 or proj.position.y < 0 or proj.position.y > 960:
+		if proj.position.x < 0 or proj.position.x > GRID_COLUMNS * CELL_WIDTH or proj.position.y < 0 or proj.position.y > GRID_ROWS * CELL_WIDTH:
 			proj_to_remove.append(proj)
 			
 	for p in proj_to_remove:
@@ -243,6 +295,14 @@ func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_
 	# Sélectionner l'unité active par défaut
 	if not simulated_units.is_empty():
 		active_unit = simulated_units[0]
+
+	# Cadrer la caméra sur l'équipe du joueur (bas de la carte)
+	cam_zoom = 0.7
+	if is_instance_valid(active_unit):
+		camera.position = active_unit.global_position
+	else:
+		camera.position = _world_size() * 0.5
+	_apply_camera()
 	queue_redraw()
 
 func _on_play_again_requested() -> void:
@@ -321,9 +381,9 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		elif type == "plane":
 			unit_hp_max = int(hp_max * 0.6)
 			
-		# Placement sur la ligne index 1 de la grille 6x10
-		var col = i
-		var row = 1
+		# Joueur 1 (bleu) : avant-dernière rangée, centré horizontalement
+		var col = (GRID_COLUMNS - player_types.size()) / 2 + i
+		var row = GRID_ROWS - 3
 		unit.global_position = Vector2(OFFSET_X + col * CELL_WIDTH + CELL_WIDTH / 2.0, OFFSET_Y + row * CELL_WIDTH + CELL_WIDTH / 2.0)
 		add_child(unit)
 		simulated_units.append(unit)
@@ -365,9 +425,9 @@ func _spawn_simulated_match(tanks: int, cars: int, planes: int, hp_max: int, ap_
 		elif type == "plane":
 			enemy_hp_max = int(hp_max * 0.6)
 			
-		# Placement sur la ligne index 8 de la grille 6x10
-		var col = i
-		var row = 8
+		# Joueur 2 / IA (rouge) : 3e rangée en partant du haut, centré
+		var col = (GRID_COLUMNS - enemy_types.size()) / 2 + i
+		var row = 2
 		enemy.global_position = Vector2(OFFSET_X + col * CELL_WIDTH + CELL_WIDTH / 2.0, OFFSET_Y + row * CELL_WIDTH + CELL_WIDTH / 2.0)
 		add_child(enemy)
 		simulated_units.append(enemy)
@@ -426,7 +486,7 @@ func _on_end_turn() -> void:
 			unit.set("action_points", enemy_ap)
 			_update_unit_gauge(unit)
 			
-	_spawn_floating_damage_text(Vector2(216, 320), "Tour Ennemi" if is_vs_ia else "Tour Joueur 2")
+	_spawn_floating_damage_text(_screen_to_world(Vector2(get_viewport().get_visible_rect().size.x * 0.5, 240)), "Tour Ennemi" if is_vs_ia else "Tour Joueur 2")
 	queue_redraw()
 	
 	if is_vs_ia:
@@ -683,22 +743,89 @@ func _restore_player_turn() -> void:
 			unit.set("action_points", current_ap)
 			_update_unit_gauge(unit)
 		
-	_spawn_floating_damage_text(Vector2(216, 320), "Tour %d" % turns)
+	_spawn_floating_damage_text(_screen_to_world(Vector2(get_viewport().get_visible_rect().size.x * 0.5, 240)), "Tour %d" % turns)
 	queue_redraw()
 
+# Distance / milieu entre les deux doigts actifs (gestes caméra)
+func _touches_distance() -> float:
+	var pts = _touches.values()
+	return pts[0].distance_to(pts[1]) if pts.size() >= 2 else 0.0
+
+func _touches_midpoint() -> Vector2:
+	var pts = _touches.values()
+	return (pts[0] + pts[1]) * 0.5 if pts.size() >= 2 else Vector2.ZERO
+
+# Zoome en gardant fixe le point du monde sous le curseur/doigt.
+func _zoom_at(screen_pos: Vector2, factor: float) -> void:
+	var before = _screen_to_world(screen_pos)
+	cam_zoom = clampf(cam_zoom * factor, CAM_ZOOM_MIN, CAM_ZOOM_MAX)
+	_apply_camera()
+	var after = _screen_to_world(screen_pos)
+	camera.position += (before - after)
+	_apply_camera()
+
 func _input(event: InputEvent) -> void:
+	# ---- Caméra : zoom molette (desktop) ----
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_at(event.position, 1.1)
+			return
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_at(event.position, 1.0 / 1.1)
+			return
+
+	# ---- Caméra : déplacement au clic droit/milieu (desktop) ----
+	if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
+		_is_panning = event.pressed
+		return
+	if event is InputEventMouseMotion and _is_panning:
+		camera.position -= event.relative / cam_zoom
+		_apply_camera()
+		return
+
+	# ---- Suivi des doigts (tactile) ----
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_touches[event.index] = event.position
+		else:
+			_touches.erase(event.index)
+		if _touches.size() >= 2:
+			# Un 2e doigt = geste caméra : on annule tout swipe d'unité en cours
+			is_dragging = false
+			_pinch_start_dist = _touches_distance()
+			_pinch_start_zoom = cam_zoom
+			_pan_last_mid = _touches_midpoint()
+	elif event is InputEventScreenDrag and _touches.has(event.index):
+		_touches[event.index] = event.position
+		if _touches.size() >= 2:
+			# Pinch (zoom) + déplacement à 2 doigts
+			var d = _touches_distance()
+			if _pinch_start_dist > 1.0:
+				cam_zoom = clampf(_pinch_start_zoom * (d / _pinch_start_dist), CAM_ZOOM_MIN, CAM_ZOOM_MAX)
+			var mid = _touches_midpoint()
+			camera.position -= (mid - _pan_last_mid) / cam_zoom
+			_pan_last_mid = mid
+			_apply_camera()
+			return
+
+	# Pendant un geste caméra à 2 doigts, on ignore la logique d'unité
+	if _touches.size() >= 2:
+		return
+
+	# ---- Logique d'unité (1 doigt / clic gauche) ----
 	if simulated_units.is_empty() or (is_enemy_turn and is_vs_ia):
 		return
-		
+
 	if event is InputEventMouseButton or event is InputEventScreenTouch:
+		if event is InputEventMouseButton and event.button_index != MOUSE_BUTTON_LEFT:
+			return
 		var event_pressed = event.pressed if "pressed" in event else event.is_pressed()
 		if event_pressed:
-			var mouse_pos = get_global_mouse_position()
-			# Ne pas traiter les clics dans la TopBar (Y < 75) ou le BottomPanel (Y > 800) du HUD
-			if mouse_pos.y < 75 or mouse_pos.y > 800:
+			# Zone morte HUD en coordonnées ÉCRAN (TopBar Y<75, BottomPanel Y>800)
+			if event.position.y < 75 or event.position.y > 800:
 				return
-				
-			press_position = mouse_pos
+
+			press_position = _screen_to_world(event.position)
 			print("[Gameplay Input] Press down at: ", press_position, " | Mode: ", current_mode)
 			
 			# Vérifier si l'utilisateur a appuyé sur le tank déjà actif
@@ -744,7 +871,7 @@ func _input(event: InputEvent) -> void:
 			if is_dragging and active_unit:
 				is_dragging = false
 				is_perfect_zone = false
-				drag_current_position = get_global_mouse_position()
+				drag_current_position = _screen_to_world(event.position)
 				var drag_vector = drag_current_position - press_position
 				print("[Gameplay Input] Release at: ", drag_current_position, " | Drag Vector: ", drag_vector, " Length: ", drag_vector.length())
 				
@@ -768,7 +895,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion or event is InputEventScreenDrag:
 		# Mettre à jour la position du drag en temps réel pour le tracé visuel
 		if is_dragging and active_unit:
-			drag_current_position = get_global_mouse_position()
+			drag_current_position = _screen_to_world(event.position)
 			queue_redraw()
 
 func _handle_swipe(drag_vector: Vector2) -> void:
@@ -975,7 +1102,7 @@ func _spawn_floating_damage_text(pos: Vector2, msg: String) -> void:
 # Rendu 2D de la grille et des tanks
 func _draw() -> void:
 	# Dessiner le fond uni sombre sur tout l'écran
-	draw_rect(Rect2(0, 0, 432, 960), Color("#0C0C0D"))
+	draw_rect(Rect2(0, 0, GRID_COLUMNS * CELL_WIDTH, GRID_ROWS * CELL_WIDTH), Color("#0C0C0D"))
 	
 	if simulated_units.is_empty():
 		return

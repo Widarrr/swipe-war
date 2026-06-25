@@ -19,8 +19,8 @@ func after_each() -> void:
 # --- Grille & cartes -------------------------------------------------------
 
 func test_grid_dimensions() -> void:
-	assert_eq(_gp.GRID_COLUMNS, 6, "La grille fait 6 colonnes")
-	assert_eq(_gp.GRID_ROWS, 10, "La grille fait 10 lignes")
+	assert_eq(_gp.GRID_COLUMNS, 12, "La grille fait 12 colonnes")
+	assert_eq(_gp.GRID_ROWS, 24, "La grille fait 24 lignes")
 
 func test_map_presets_exist() -> void:
 	for name in ["classic", "cross", "pillars", "corridor"]:

@@ -39,8 +39,9 @@
     <h1>🎮 Swipe War</h1>
     <p class="sub">Scanne le QR code avec ton téléphone Android</p>
     <div id="qrcode"></div>
-    <p class="hint">…ou utilise les boutons ci-dessous</p>
-    <a class="btn btn-apk" id="apkLink" href="swipe-war.apk" download>📱 Télécharger l'APK Android</a>
+    <p class="hint">Tu arrives sur la page GitHub : touche <b>swipe-war.apk</b> pour télécharger</p>
+    <a class="btn btn-apk" id="releaseLink" href="#">📥 Page de téléchargement de l'APK</a>
+    <a class="btn btn-web" id="apkLink" href="#">📱 Télécharger l'APK directement</a>
     <a class="btn btn-web" href="./">▶️ Jouer dans le navigateur</a>
     <p class="warn">
       Android peut afficher « <b>source inconnue</b> » : autorise l'installation depuis ton navigateur,
@@ -50,11 +51,15 @@
 
   <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a/qrcode.min.js"></script>
   <script>
-    // L'APK est publie via GitHub Releases (pas de limite de taille). URL stable du dernier build.
+    // Le QR pointe vers la PAGE de Release (pas le fichier direct) : elle s'affiche
+    // dans n'importe quel navigateur — y compris les scanners type Google Lens —
+    // et le telechargement direct du .apk y est gere de facon fiable par Android.
+    var releaseUrl = "https://github.com/Widarrr/swipe-war/releases/latest";
     var apkUrl = "https://github.com/Widarrr/swipe-war/releases/latest/download/swipe-war.apk";
+    document.getElementById('releaseLink').href = releaseUrl;
     document.getElementById('apkLink').href = apkUrl;
     new QRCode(document.getElementById('qrcode'), {
-      text: apkUrl, width: 200, height: 200,
+      text: releaseUrl, width: 200, height: 200,
       colorDark: '#10131a', colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M
     });

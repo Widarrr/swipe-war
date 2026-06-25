@@ -16,6 +16,7 @@ var _current_ap: int = 5
 func _ready() -> void:
 	# Ajuster le point de pivot en bas au centre
 	pivot_offset = size / 2.0
+	process_priority = 100
 	
 	# Initialiser l'affichage
 	update_gauge(_current_hp, _max_hp, _current_ap, _max_ap)

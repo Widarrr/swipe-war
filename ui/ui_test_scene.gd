@@ -58,13 +58,16 @@ var show_laser: bool = false
 var camera: Camera2D
 const CAM_ZOOM_MIN := 0.45   # dézoomé : vue large
 const CAM_ZOOM_MAX := 2.0    # zoomé : gros plan
-var cam_zoom: float = 0.7
+var cam_zoom: float = 1.2
 # Suivi des doigts pour les gestes (index -> position écran)
 var _touches: Dictionary = {}
 var _pinch_start_dist: float = 0.0
-var _pinch_start_zoom: float = 0.7
+var _pinch_start_zoom: float = 1.2
 var _pan_last_mid: Vector2 = Vector2.ZERO
 var _is_panning: bool = false
+var _is_left_click_panning: bool = false
+var _camera_drag_last_pos: Vector2 = Vector2.ZERO
+var _press_screen_pos: Vector2 = Vector2.ZERO
 
 # Dimensions du monde (carte) en pixels
 func _world_size() -> Vector2:
@@ -297,7 +300,7 @@ func _on_match_started(tanks: int, cars: int, planes: int, hp: int, ap: int, vs_
 		active_unit = simulated_units[0]
 
 	# Cadrer la caméra sur l'équipe du joueur (bas de la carte)
-	cam_zoom = 0.7
+	cam_zoom = 1.2
 	if is_instance_valid(active_unit):
 		camera.position = active_unit.global_position
 	else:
@@ -489,6 +492,17 @@ func _on_end_turn() -> void:
 		# Attendre 1.0s pour la fluidité
 		get_tree().create_timer(1.0).timeout.connect(_enemy_ai_action)
 
+func _ai_has_los(from_pos: Vector2, to_pos: Vector2) -> bool:
+	var dir = (to_pos - from_pos).normalized()
+	var dist = from_pos.distance_to(to_pos)
+	var step = 8.0
+	var steps = int(dist / step)
+	for s in range(1, steps):
+		var check_pos = from_pos + dir * (s * step)
+		if _is_position_colliding_with_obstacles(check_pos, 16.0):
+			return false
+	return true
+
 func _enemy_ai_action() -> void:
 	if simulated_units.is_empty() or not is_instance_valid(self):
 		return
@@ -540,19 +554,7 @@ func _enemy_ai_action() -> void:
 	print("IA Tactique: Unité=%s (HP=%d) cible %s (HP=%d) avec AP restants=%d" % [ai_unit.name, _get_hp(ai_unit), target.name, _get_hp(target), enemy_ap])
 	
 	# Évaluer la ligne de visée (Line of Sight / LoS)
-	var has_los = true
-	var start_pos = ai_unit.global_position
-	var end_pos = target.global_position
-	var dir_to_target = (end_pos - start_pos).normalized()
-	var dist_to_target = start_pos.distance_to(end_pos)
-	var check_step = 8.0
-	var check_steps = int(dist_to_target / check_step)
-	
-	for s in range(1, check_steps):
-		var check_pos = start_pos + dir_to_target * (s * check_step)
-		if _is_position_colliding_with_obstacles(check_pos, 16.0):
-			has_los = false
-			break
+	var has_los = _ai_has_los(ai_unit.global_position, target.global_position)
 			
 	# Décider de l'action
 	var can_shoot = enemy_ap >= 2
@@ -635,14 +637,14 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 	
 	var best_dir = Vector2.ZERO
 	var best_pos = ai_unit.global_position
-	var min_dist_to_target = ai_unit.global_position.distance_to(target.global_position)
+	var start_dist = ai_unit.global_position.distance_to(target.global_position)
+	var min_dist_to_target = start_dist
 	
 	for dir in possible_dirs:
 		var start_pos = ai_unit.global_position
 		var target_pos = start_pos
 		var step_size = 4.0
 		var steps = int(slide_distance / step_size)
-		var collides = false
 		
 		for step in range(1, steps + 1):
 			var check_pos = start_pos + dir * (step * step_size)
@@ -650,12 +652,10 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 			# 1. Bordures
 			var margin = 20.0
 			if check_pos.x < (OFFSET_X + margin) or check_pos.x > (OFFSET_X + GRID_COLUMNS * CELL_WIDTH - margin) or check_pos.y < (OFFSET_Y + margin) or check_pos.y > (OFFSET_Y + GRID_ROWS * CELL_WIDTH - margin):
-				collides = true
 				break
 				
 			# 2. Obstacles
 			if _is_position_colliding_with_obstacles(check_pos, 15.0):
-				collides = true
 				break
 				
 			# 3. Véhicules
@@ -666,13 +666,17 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 						vehicle_at_pos = true
 						break
 			if vehicle_at_pos:
-				collides = true
 				break
 				
 			target_pos = check_pos
 			
-		if not collides and target_pos != start_pos:
+		if target_pos != start_pos:
 			var dist = target_pos.distance_to(target.global_position)
+			
+			# Bonus tactique : valorise fortement les positions offrant une ligne de visée dégagée
+			if _ai_has_los(target_pos, target.global_position):
+				dist -= 80.0 # Équivaut à se rapprocher de 80px pour encourager le contournement
+				
 			if dist < min_dist_to_target:
 				min_dist_to_target = dist
 				best_dir = dir
@@ -694,11 +698,11 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 			
 		# Déplacement Tween
 		var move_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		move_tween.tween_property(ai_unit, "global_position", best_pos, 0.22)
+		move_tween.tween_property(ai_unit, "global_position", best_pos, 0.30)
 		
 		# Squash & Stretch
 		var scale_tween = create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-		ai_unit.scale = Vector2(1.25, 0.75) if best_dir.x != 0 else Vector2(0.75, 1.25)
+		ai_unit.scale = Vector2(1.25, 0.75)
 		scale_tween.tween_property(ai_unit, "scale", Vector2.ONE, 0.35)
 		
 		await move_tween.finished
@@ -821,6 +825,7 @@ func _input(event: InputEvent) -> void:
 			if event.position.y < 75 or event.position.y > 800:
 				return
 
+			_press_screen_pos = event.position
 			press_position = _screen_to_world(event.position)
 			print("[Gameplay Input] Press down at: ", press_position, " | Mode: ", current_mode)
 			
@@ -861,9 +866,18 @@ func _input(event: InputEvent) -> void:
 				drag_current_position = press_position
 				print("[Gameplay Input] Swipe started from empty space with active unit: ", active_unit.name)
 				queue_redraw()
+			else:
+				# Clic sur le vide ou pas dans un mode actif d'action -> mode déplacement caméra !
+				_is_left_click_panning = true
+				_camera_drag_last_pos = event.position
+				print("[Gameplay Input] Camera panning started via left click.")
 				
 		else:
 			# Relâchement du clic ou toucher
+			if _is_left_click_panning:
+				_is_left_click_panning = false
+				print("[Gameplay Input] Left-click camera drag stopped.")
+				
 			if is_dragging and active_unit:
 				is_dragging = false
 				is_perfect_zone = false
@@ -887,8 +901,36 @@ func _input(event: InputEvent) -> void:
 						else:
 							_handle_shoot_swipe(drag_vector)
 				queue_redraw()
+			
+			# Gérer le désélectionnement en cas de simple tap sur du vide
+			var drag_dist = event.position.distance_to(_press_screen_pos)
+			if drag_dist <= 15.0:
+				var clicked_any_unit = false
+				var release_pos_world = _screen_to_world(event.position)
+				for unit in simulated_units:
+					if is_instance_valid(unit) and _get_hp(unit) > 0 and _get_is_enemy(unit) == is_enemy_turn:
+						if unit.global_position.distance_to(release_pos_world) < 40.0:
+							clicked_any_unit = true
+							break
+				if not clicked_any_unit:
+					active_unit = null
+					current_mode = "none"
+					var hud_node = ui_manager.hud
+					if is_instance_valid(hud_node):
+						hud_node.set_action_mode("none")
+					_update_hud_ap()
+					print("[Gameplay Input] Tapped empty space. Deselected unit and mode.")
+					queue_redraw()
 
 	elif event is InputEventMouseMotion or event is InputEventScreenDrag:
+		if _is_left_click_panning:
+			var diff = event.position - _camera_drag_last_pos
+			camera.position -= diff / cam_zoom
+			_apply_camera()
+			_camera_drag_last_pos = event.position
+			queue_redraw()
+			return
+		
 		# Mettre à jour la position du drag en temps réel pour le tracé visuel
 		if is_dragging and active_unit:
 			drag_current_position = _screen_to_world(event.position)
@@ -976,7 +1018,7 @@ func _handle_swipe(drag_vector: Vector2) -> void:
 	
 	# Tween de déplacement fluide
 	var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.tween_property(active_unit, "global_position", target_pos, 0.20)
+	tween.tween_property(active_unit, "global_position", target_pos, 0.30)
 	
 	# Tween d'écrasement/extension élastique (Squash & Stretch)
 	var scale_tween = create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
@@ -1808,6 +1850,7 @@ func _spawn_trail_particles(unit: Node2D, color: Color, duration: float, is_rain
 	particles.lifetime = 0.5 if is_rainbow else 0.4
 	particles.spread = 55.0 if is_rainbow else 45.0
 	particles.gravity = Vector2.ZERO
+	particles.local_coords = false
 	particles.initial_velocity_min = 30.0 if is_rainbow else 20.0
 	particles.initial_velocity_max = 60.0 if is_rainbow else 50.0
 	particles.scale_amount_min = 3.0 if is_rainbow else 2.0

@@ -1,6 +1,11 @@
-[gd_resource type="Theme" load_steps=7 format=3 uid="uid://cm3q5bqpx225h"]
+[gd_resource type="Theme" load_steps=9 format=3 uid="uid://cm3q5bqpx225h"]
 
 [ext_resource type="FontFile" uid="uid://cmrfrabw2g0a5" path="res://ui/common/themes/Outfit.ttf" id="1_font"]
+[ext_resource type="FontFile" uid="uid://b41w3x6ovdipy" path="res://ui/common/themes/NotoEmoji-Regular.ttf" id="2_emoji"]
+
+[sub_resource type="FontVariation" id="FontVariation_main"]
+base_font = ExtResource("1_font")
+fallbacks = Array[Font]([ExtResource("2_emoji")])
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_disabled"]
 content_margin_left = 12.0
@@ -81,7 +86,7 @@ corner_radius_bottom_left = 20
 corner_radius_bottom_right = 20
 
 [resource]
-default_font = ExtResource("1_font")
+default_font = SubResource("FontVariation_main")
 default_font_size = 20
 Button/colors/font_color = Color(0.92549, 0.92549, 0.941176, 1)
 Button/colors/font_disabled_color = Color(0.3, 0.3, 0.3, 0.5)

@@ -1075,7 +1075,7 @@ func _handle_swipe(drag_vector: Vector2) -> void:
 	for step in range(1, steps + 1):
 		var check_pos = start_pos + dir * (step * step_size)
 		
-		# 1. Bordures de la grille 6x10
+		# 1. Bordures de la grille 64x64
 		var margin = 20.0
 		if check_pos.x < (OFFSET_X + margin) or check_pos.x > (OFFSET_X + GRID_COLUMNS * CELL_WIDTH - margin) or check_pos.y < (OFFSET_Y + margin) or check_pos.y > (OFFSET_Y + GRID_ROWS * CELL_WIDTH - margin):
 			blocked_reason = "Hors Limites !"
@@ -1346,7 +1346,7 @@ func _draw() -> void:
 				for i in range(1, steps + 1):
 					var check_pos = start_pos + drag_dir * (i * step_size)
 					
-					# 1. Bordures de la grille 6x10
+					# 1. Bordures de la grille 64x64
 					var margin = 20.0
 					if check_pos.x < (OFFSET_X + margin) or check_pos.x > (OFFSET_X + GRID_COLUMNS * CELL_WIDTH - margin) or check_pos.y < (OFFSET_Y + margin) or check_pos.y > (OFFSET_Y + GRID_ROWS * CELL_WIDTH - margin):
 						is_blocked = true

@@ -87,7 +87,7 @@ jobs:
 
       - name: "Export Web (HTML5)"
         run: |
-          godot --headless --export-release "Web" build/web/index.html
+          godot --headless --export-release "Web" build/web/game.html
 
       - name: "Export Android APK"
         run: |
@@ -99,7 +99,7 @@ jobs:
       - name: "Inject COI Service Worker (GitHub Pages SharedArrayBuffer fix)"
         run: |
           curl -sSL https://raw.githubusercontent.com/gzguidoti/coi-serviceworker/main/coi-serviceworker.min.js -o build/web/coi-serviceworker.js
-          sed -i 's|<head>|<head><script src="coi-serviceworker.js"></script>|g' build/web/index.html
+          sed -i 's|<head>|<head><script src="coi-serviceworker.js"></script>|g' build/web/game.html
 
       - name: "Upload Web Artifact"
         uses: actions/upload-artifact@v4
@@ -148,8 +148,9 @@ jobs:
           name: swipe-war-web
           path: build/web
 
-      - name: "Add download page (QR code -> APK release)"
+      - name: "Add landing page and download page"
         run: |
+          cp web_extra/index.html build/web/index.html
           cp web_extra/download.html build/web/download.html
 
       - name: "Deploy to GitHub Pages"

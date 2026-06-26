@@ -633,8 +633,8 @@ func _enemy_ai_action() -> void:
 	var has_los = _ai_has_los(ai_unit.global_position, target.global_position)
 			
 	# Décider de l'action
-	var can_shoot = active_ap >= 2
-	
+	var can_shoot = active_ap >= 2 and min_dist <= MAX_SHOOT_RANGE
+
 	if can_shoot and has_los:
 		# L'IA a les AP et a une ligne de visée claire : elle tire !
 		_ai_perform_shoot(ai_unit, target)
@@ -800,8 +800,8 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 				_enemy_ai_action()
 		)
 	else:
-		# Fallback : Si on est coincé ou plus assez d'AP pour bouger mais AP >= 2, on tente un tir désespéré
-		if active_ap >= 2:
+		# Fallback : Si on est coincé mais à portée et avec assez d'AP, on tente un tir désespéré
+		if active_ap >= 2 and min_dist <= MAX_SHOOT_RANGE:
 			print("IA Tactique: Bloqué ou éloigné, tir direct de secours.")
 			_ai_perform_shoot(ai_unit, target)
 		else:

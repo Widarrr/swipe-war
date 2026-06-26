@@ -703,8 +703,9 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 		Vector2(1, -1).normalized(), Vector2(-1, -1).normalized()
 	]
 	
-	# Évaluer la glissade selon le poids
-	var ai_pct = randf_range(0.5, 0.85)
+	# Évaluer la glissade selon le poids (simule l'oscillation joueur : zone 0.72-0.95)
+	var is_perfect_move = randf() < 0.20
+	var ai_pct = randf_range(0.88, 0.92) if is_perfect_move else randf_range(0.72, 0.95)
 	var weight = 1.0
 	var v_type = ai_unit.get("vehicle_type")
 	match v_type:
@@ -765,7 +766,7 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 	# Si un mouvement valide est trouvé, on l'exécute
 	var active_ap = enemy_ap if is_enemy_turn else current_ap
 	if best_dir != Vector2.ZERO and active_ap >= 1:
-		var is_perfect = randf() < 0.20 # 20% de chances de mouvement parfait
+		var is_perfect = is_perfect_move
 		if not is_perfect:
 			if is_enemy_turn:
 				enemy_ap -= 1

@@ -639,12 +639,8 @@ func _enemy_ai_action() -> void:
 	if can_shoot and has_los:
 		_ai_perform_shoot(ai_unit, target)
 	else:
-		# LoS bloquée ou hors portée : se déplacer (contournement ou rapprochement)
+		# LoS bloquée, hors portée, ou AP < 2 : se déplacer pour se rapprocher/contourner
 		_ai_perform_movement_or_fallback(ai_unit, target)
-	else:
-		# En portée, LoS dégagée mais AP < 2 : économiser les AP, passer le tour
-		print("IA Tactique: En position, pas assez d'AP pour tirer. Tour passé.")
-		_switch_turn()
 
 func _ai_perform_shoot(ai_unit: Node2D, target: Node2D) -> void:
 	if not is_instance_valid(ai_unit) or not is_instance_valid(target):

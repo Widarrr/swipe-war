@@ -638,12 +638,9 @@ func _enemy_ai_action() -> void:
 
 	if can_shoot and has_los:
 		_ai_perform_shoot(ai_unit, target)
-	elif in_range and not has_los:
-		# En portée mais la LoS est bloquée : se déplacer seulement si on gagne la LoS, sinon passer
-		_ai_perform_movement_or_fallback(ai_unit, target, true)
-	elif not in_range:
-		# Hors portée : se rapprocher
-		_ai_perform_movement_or_fallback(ai_unit, target, false)
+	else:
+		# LoS bloquée ou hors portée : se déplacer (contournement ou rapprochement)
+		_ai_perform_movement_or_fallback(ai_unit, target)
 	else:
 		# En portée, LoS dégagée mais AP < 2 : économiser les AP, passer le tour
 		print("IA Tactique: En position, pas assez d'AP pour tirer. Tour passé.")
@@ -701,7 +698,7 @@ func _ai_perform_shoot(ai_unit: Node2D, target: Node2D) -> void:
 			_enemy_ai_action()
 	)
 
-func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D, require_los: bool = false) -> void:
+func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D) -> void:
 	# Chercher une direction qui nous rapproche le plus de la cible
 	var possible_dirs = [
 		Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT,
@@ -760,21 +757,15 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D, require_l
 		if target_pos != start_pos:
 			var dist = target_pos.distance_to(target.global_position)
 			
-			# Bonus tactique : valorise fortement les positions offrant une ligne de visée dégagée
+			# Bonus tactique : valorise les positions offrant une ligne de visée dégagée
 			if _ai_has_los(target_pos, target.global_position):
-				dist -= 80.0 # Équivaut à se rapprocher de 80px pour encourager le contournement
+				dist -= 200.0 # Fort bonus pour encourager le contournement d'obstacle
 				
 			if dist < min_dist_to_target:
 				min_dist_to_target = dist
 				best_dir = dir
 				best_pos = target_pos
 				
-	# Si require_los et que la meilleure position ne donne pas la LoS, inutile de bouger
-	if require_los and best_dir != Vector2.ZERO and not _ai_has_los(best_pos, target.global_position):
-		print("IA Tactique: En portée mais impossible de dégager la LoS. Tour passé.")
-		_switch_turn()
-		return
-
 	# Si un mouvement valide est trouvé, on l'exécute
 	var active_ap = enemy_ap if is_enemy_turn else current_ap
 	if best_dir != Vector2.ZERO and active_ap >= 1:

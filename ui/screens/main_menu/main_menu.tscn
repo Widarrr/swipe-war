@@ -203,7 +203,7 @@ color = Color(0, 0.823529, 1, 0.5)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.380392, 0.380392, 0.419608, 1)
 theme_override_font_sizes/font_size = 14
-text = "TACTICAL GRID COMBAT"
+text = "COMBAT TACTIQUE AU TOUR PAR TOUR"
 horizontal_alignment = 1
 
 [node name="SpacerMiddle" type="Control" parent="VBoxContainer"]
@@ -225,17 +225,9 @@ theme_override_colors/font_hover_color = Color(0.0705882, 0.0705882, 0.0784314, 
 theme_override_colors/font_focus_color = Color(0.0705882, 0.0705882, 0.0784314, 1)
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn_newgame_normal")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_newgame_pressed")
-text = "New Game"
+text = "Nouvelle Partie"
 script = ExtResource("3_touch_btn")
 
-[node name="QuitButton" type="Button" parent="VBoxContainer/ButtonsContainer"]
-custom_minimum_size = Vector2(280, 56)
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn_quit_normal")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_quit_pressed")
-text = "Quit"
-script = ExtResource("3_touch_btn")
 
 [node name="SpacerBottom" type="Control" parent="VBoxContainer"]
 layout_mode = 2
@@ -245,7 +237,7 @@ size_flags_vertical = 3
 layout_mode = 2
 theme_override_colors/font_color = Color(0.239216, 0.239216, 0.262745, 1)
 theme_override_font_sizes/font_size = 12
-text = "v0.9.0"
+text = "v.1"
 horizontal_alignment = 1
 
 [node name="SpacerEnd" type="Control" parent="VBoxContainer"]

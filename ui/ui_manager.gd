@@ -48,7 +48,6 @@ func _connect_screen_signals() -> void:
 	# Signaux du Menu Principal
 	if main_menu:
 		main_menu.connect("new_game_pressed", func() -> void: change_screen(ScreenType.GAME_SETUP))
-		main_menu.connect("quit_pressed", func() -> void: game_exited.emit())
 		
 	# Signaux de Configuration de Partie
 	if game_setup:

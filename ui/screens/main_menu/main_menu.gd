@@ -2,10 +2,8 @@
 extends UIScreen
 
 signal new_game_pressed
-signal quit_pressed
 
 @onready var new_game_btn: TouchButton = $VBoxContainer/ButtonsContainer/NewGameButton
-@onready var quit_btn: TouchButton = $VBoxContainer/ButtonsContainer/QuitButton
 @onready var logo_container: Control = $VBoxContainer/LogoContainer
 
 var time_accum: float = 0.0
@@ -16,7 +14,6 @@ func _ready() -> void:
 	
 	# Connecter les signaux des boutons tactiles
 	new_game_btn.pressed.connect(_on_new_game_pressed)
-	quit_btn.pressed.connect(_on_quit_pressed)
 
 func _process(delta: float) -> void:
 	time_accum += delta
@@ -54,8 +51,6 @@ func open_screen() -> void:
 	
 	if new_game_btn:
 		new_game_btn.scale = Vector2.ZERO
-	if quit_btn:
-		quit_btn.scale = Vector2.ZERO
 	if title_node:
 		title_node.modulate.a = 0.0
 		
@@ -71,12 +66,6 @@ func open_screen() -> void:
 	if new_game_btn:
 		var btn_tween1 = create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 		btn_tween1.tween_property(new_game_btn, "scale", Vector2.ONE, 0.6)
-		
-	if quit_btn:
-		await get_tree().create_timer(0.08).timeout # petit délai décalé
-		if is_instance_valid(quit_btn):
-			var btn_tween2 = create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-			btn_tween2.tween_property(quit_btn, "scale", Vector2.ONE, 0.6)
 		
 	# Ajouter un petit effet de respiration (idle animation) sur le Logo
 	_animate_logo_idle()
@@ -112,8 +101,3 @@ func _animate_logo_idle() -> void:
 func _on_new_game_pressed() -> void:
 	new_game_pressed.emit()
 
-func _on_quit_pressed() -> void:
-	quit_pressed.emit()
-	# Si on est sur une plateforme qui supporte la fermeture
-	if OS.has_feature("pc"):
-		get_tree().quit()

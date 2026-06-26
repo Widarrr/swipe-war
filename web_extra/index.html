@@ -303,13 +303,13 @@
   <script>
     var releaseUrl = "https://github.com/Widarrr/swipe-war/releases/latest";
     var apkUrl = "https://github.com/Widarrr/swipe-war/releases/latest/download/swipe-war.apk";
-    
+
     document.getElementById('releaseLink').href = releaseUrl;
     document.getElementById('directApkLink').href = apkUrl;
-    
-    // Generate QR Code pointing to GitHub Release page
+
+    // QR code pointe directement sur l'APK pour déclenchement immédiat du téléchargement
     new QRCode(document.getElementById('qrcode'), {
-      text: releaseUrl,
+      text: apkUrl,
       width: 140,
       height: 140,
       colorDark: '#070709',

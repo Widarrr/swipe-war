@@ -814,7 +814,8 @@ func _ai_perform_movement_or_fallback(ai_unit: Node2D, target: Node2D, require_l
 		)
 	else:
 		# Fallback : Si on est coincé mais à portée et avec assez d'AP, on tente un tir désespéré
-		if active_ap >= 2 and min_dist <= MAX_SHOOT_RANGE:
+		var fallback_dist = ai_unit.global_position.distance_to(target.global_position)
+		if active_ap >= 2 and fallback_dist <= MAX_SHOOT_RANGE:
 			print("IA Tactique: Bloqué ou éloigné, tir direct de secours.")
 			_ai_perform_shoot(ai_unit, target)
 		else:

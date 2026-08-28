@@ -836,7 +836,7 @@ func _active_counts() -> Array:
 func _refresh_shop_for_player() -> void:
 	if shop_title_label:
 		if editing_player == 2:
-			shop_title_label.text = "Équipe Joueur 2 — Rouge (Max 5)"
+			shop_title_label.text = "Équipe Joueur 2, Rouge (Max 5)"
 			shop_title_label.add_theme_color_override("font_color", Color("#FF4B57"))
 		else:
 			shop_title_label.text = "Créer son Équipe (Max 5 véhicules)"

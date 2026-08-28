@@ -85,10 +85,10 @@ func _is_spawn_zone(y: int) -> bool:
 	# Zone centrale
 	if abs(y - GRID_ROWS / 2) <= 4:
 		return true
-	# Zone spawn J1 (bas) – tolérance de 5 lignes autour de la ligne de spawn
+	# Zone spawn J1 (bas), tolérance de 5 lignes autour de la ligne de spawn
 	if abs(y - (GRID_ROWS / 2 + 25)) <= 5:
 		return true
-	# Zone spawn J2 (haut) – tolérance de 5 lignes autour de la ligne de spawn
+	# Zone spawn J2 (haut), tolérance de 5 lignes autour de la ligne de spawn
 	if abs(y - (GRID_ROWS / 2 - 25)) <= 5:
 		return true
 	return false
